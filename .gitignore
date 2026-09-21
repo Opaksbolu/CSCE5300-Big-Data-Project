@@ -1,0 +1,52 @@
+# ============================================================
+# CSCE 5300 Big Data Project
+# Git Ignore Configuration
+# ============================================================
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.*
+
+# Spark temporary/output files
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+
+# Logs
+*.log
+logs/
+
+# Large/raw datasets
+data/raw/
+data/processed/
+
+# Generated experiment output
+results/raw/*.csv
+results/raw/*.json
+
+# Keep directories in Git
+!results/raw/.gitkeep
+
+# Packaging
+build/
+dist/
+*.egg-info/
