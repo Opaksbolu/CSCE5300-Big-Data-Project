@@ -15,6 +15,7 @@ algorithms.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 
 from pyspark import RDD
 
@@ -32,6 +33,20 @@ from src.parallel.partition_clustering import (
     cluster_rdd_partitions,
 )
 
+@dataclass(frozen=True)
+class ParallelKMeansTiming:
+    """
+    Runtime measurements for the major Parallel K-Means stages.
+
+    All values are measured in seconds using a monotonic
+    high-resolution performance counter.
+    """
+
+    partition_clustering_seconds: float
+    center_aggregation_seconds: float
+    initialization_seconds: float
+    global_clustering_seconds: float
+    total_runtime_seconds: float
 
 @dataclass(frozen=True)
 class ParallelKMeansResult:
@@ -47,6 +62,7 @@ class ParallelKMeansResult:
     partition_results: tuple[PartitionClusteringResult, ...]
     initialization: CenterAggregationResult
     global_result: GlobalKMeansResult
+    timing: ParallelKMeansTiming
 
 
 def fit_parallel_kmeans(
@@ -85,7 +101,7 @@ def fit_parallel_kmeans(
     Returns
     -------
     ParallelKMeansResult
-        Complete initialization and global clustering results.
+        Complete initialization, timing, and global clustering results.
     """
 
     if k <= 0:
@@ -113,6 +129,10 @@ def fit_parallel_kmeans(
             "RDD must contain at least one point."
         )
 
+    total_start = perf_counter()
+
+    partition_start = perf_counter()
+
     partition_results = tuple(
         cluster_rdd_partitions(
             rdd,
@@ -123,10 +143,16 @@ def fit_parallel_kmeans(
         ).collect()
     )
 
+    partition_clustering_seconds = (
+        perf_counter() - partition_start
+    )
+
     if not partition_results:
         raise ValueError(
             "Partition clustering produced no results."
         )
+
+    aggregation_start = perf_counter()
 
     initialization = aggregate_partition_results(
         partition_results,
@@ -136,11 +162,48 @@ def fit_parallel_kmeans(
         random_seed=random_seed,
     )
 
+    center_aggregation_seconds = (
+        perf_counter() - aggregation_start
+    )
+
+    initialization_seconds = (
+        partition_clustering_seconds
+        + center_aggregation_seconds
+    )
+
+    global_start = perf_counter()
+
     global_result = fit_global_kmeans(
         rdd,
         initialization.global_centers,
         max_iterations=global_max_iterations,
         tolerance=tolerance,
+    )
+
+    global_clustering_seconds = (
+        perf_counter() - global_start
+    )
+
+    total_runtime_seconds = (
+        perf_counter() - total_start
+    )
+
+    timing = ParallelKMeansTiming(
+        partition_clustering_seconds=(
+            partition_clustering_seconds
+        ),
+        center_aggregation_seconds=(
+            center_aggregation_seconds
+        ),
+        initialization_seconds=(
+            initialization_seconds
+        ),
+        global_clustering_seconds=(
+            global_clustering_seconds
+        ),
+        total_runtime_seconds=(
+            total_runtime_seconds
+        ),
     )
 
     return ParallelKMeansResult(
@@ -152,4 +215,5 @@ def fit_parallel_kmeans(
         partition_results=partition_results,
         initialization=initialization,
         global_result=global_result,
+        timing=timing,
     )

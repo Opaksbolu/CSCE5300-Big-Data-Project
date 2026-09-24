@@ -332,3 +332,97 @@ def test_parallel_kmeans_rejects_partition_smaller_than_k(
             k=3,
             random_seed=42,
         )
+def test_parallel_kmeans_reports_nonnegative_timing(
+    spark,
+) -> None:
+    """
+    The complete pipeline should expose nonnegative runtime
+    measurements for every instrumented stage.
+    """
+
+    points = [
+        (1.0, 1.0),
+        (1.1, 1.0),
+        (1.0, 1.1),
+        (9.0, 9.0),
+        (9.1, 9.0),
+        (9.0, 9.1),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_parallel_kmeans(
+        rdd,
+        k=2,
+        random_seed=42,
+    )
+
+    timing = result.timing
+
+    assert timing.partition_clustering_seconds >= 0.0
+    assert timing.center_aggregation_seconds >= 0.0
+    assert timing.initialization_seconds >= 0.0
+    assert timing.global_clustering_seconds >= 0.0
+    assert timing.total_runtime_seconds >= 0.0
+
+
+def test_parallel_kmeans_timing_is_internally_consistent(
+    spark,
+) -> None:
+    """
+    Timing metadata should preserve the relationships between
+    initialization, global clustering, and total runtime.
+    """
+
+    points = [
+        (1.0, 1.0),
+        (1.1, 1.0),
+        (1.0, 1.1),
+        (9.0, 9.0),
+        (9.1, 9.0),
+        (9.0, 9.1),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_parallel_kmeans(
+        rdd,
+        k=2,
+        random_seed=42,
+    )
+
+    timing = result.timing
+
+    expected_initialization = (
+        timing.partition_clustering_seconds
+        + timing.center_aggregation_seconds
+    )
+
+    assert (
+        timing.initialization_seconds
+        == expected_initialization
+    )
+
+    assert (
+        timing.total_runtime_seconds
+        >= timing.initialization_seconds
+    )
+
+    assert (
+        timing.total_runtime_seconds
+        >= timing.global_clustering_seconds
+    )
+
+    assert (
+        timing.total_runtime_seconds
+        >= (
+            timing.initialization_seconds
+            + timing.global_clustering_seconds
+        )
+    )
