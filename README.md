@@ -5,8 +5,8 @@ This repository contains the implementation and experimental framework for a CSC
 
 The project is based on the 2024 IEEE conference paper:
 
-> H. Liu, Y. Bai, Z. Chen, and Z. Zhang,  
-> “Big Data Clustering Method Based on Parallel K-Means,”  
+> H. Liu, Y. Bai, Z. Chen, and Z. Zhang,
+> “Big Data Clustering Method Based on Parallel K-Means,”
 > 2024 IEEE 4th International Conference on Power, Electronics and Computer Applications (ICPECA), Shenyang, China, 2024.
 
 The objective is not simply to execute an existing clustering library. Instead, the project independently implements the major stages of the parallel clustering architecture described in the paper so that its behavior, performance, scalability, and clustering quality can be studied experimentally.
@@ -29,10 +29,10 @@ The implementation is designed to support controlled experiments involving diffe
 
 ## 2. Reference Paper
 
-**Title:** Big Data Clustering Method Based on Parallel K-Means  
-**Authors:** Haibo Liu, Yongbin Bai, Zhenhao Chen, and Zhenfeng Zhang  
-**Conference:** 2024 IEEE 4th International Conference on Power, Electronics and Computer Applications (ICPECA)  
-**Year:** 2024  
+**Title:** Big Data Clustering Method Based on Parallel K-Means
+**Authors:** Haibo Liu, Yongbin Bai, Zhenhao Chen, and Zhenfeng Zhang
+**Conference:** 2024 IEEE 4th International Conference on Power, Electronics and Computer Applications (ICPECA)
+**Year:** 2024
 **DOI:** 10.1109/ICPECA60615.2024.10470970
 
 The paper proposes an improved Spark-based K-Means workflow in which data is partitioned across worker nodes, local clustering is performed within partitions, the resulting local centers are aggregated, and those centers are used to initialize a distributed global K-Means process.
