@@ -1,8 +1,9 @@
 """
-Shared pytest fixtures for the parallel K-Means test suite.
+Shared pytest fixtures for the CSCE 5300 project test suite.
 
-Spark integration tests use a common session so that individual test
-modules do not need to duplicate Spark setup and teardown logic.
+Spark integration and experiment tests use a common session so that
+individual test modules do not need to duplicate Spark setup and
+teardown logic.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from src.parallel.spark_session import (
 @pytest.fixture(scope="session")
 def spark():
     """
-    Create one Spark session shared by the parallel test suite.
+    Create one Spark session shared by the project test suite.
 
     The test environment uses two local worker threads to exercise
     Spark's parallel execution model without placing unnecessary

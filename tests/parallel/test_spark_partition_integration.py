@@ -14,26 +14,6 @@ from src.parallel.partition_clustering import (
     cluster_rdd_partitions,
     collect_candidate_centers,
 )
-from src.parallel.spark_session import (
-    create_spark_session,
-    stop_spark_session,
-)
-
-
-@pytest.fixture(scope="module")
-def spark():
-    """
-    Create one Spark session for this integration-test module.
-    """
-    session = create_spark_session(
-        app_name="CSCE5300-Partition-Integration-Tests",
-        master="local[2]",
-        log_level="ERROR",
-    )
-
-    yield session
-
-    stop_spark_session(session)
 
 
 def test_spark_executes_local_kmeans_across_partitions(spark) -> None:

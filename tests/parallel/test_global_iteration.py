@@ -17,27 +17,6 @@ from src.parallel.global_iteration import (
     _point_to_cluster_statistics,
     run_global_iteration,
 )
-from src.parallel.spark_session import (
-    create_spark_session,
-    stop_spark_session,
-)
-
-
-@pytest.fixture(scope="module")
-def spark():
-    """
-    Create one Spark session for the global-iteration tests.
-    """
-
-    session = create_spark_session(
-        app_name="CSCE5300-Global-Iteration-Tests",
-        master="local[2]",
-        log_level="ERROR",
-    )
-
-    yield session
-
-    stop_spark_session(session)
 
 
 def test_point_is_assigned_to_nearest_center() -> None:
