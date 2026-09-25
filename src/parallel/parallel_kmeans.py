@@ -33,6 +33,7 @@ from src.parallel.partition_clustering import (
     cluster_rdd_partitions,
 )
 
+
 @dataclass(frozen=True)
 class ParallelKMeansTiming:
     """
@@ -40,13 +41,19 @@ class ParallelKMeansTiming:
 
     All values are measured in seconds using a monotonic
     high-resolution performance counter.
+
+    global_clustering_seconds measures only the iterative distributed
+    K-Means loop. Final-center SSE and cluster-count evaluation are
+    reported separately in final_evaluation_seconds.
     """
 
     partition_clustering_seconds: float
     center_aggregation_seconds: float
     initialization_seconds: float
     global_clustering_seconds: float
+    final_evaluation_seconds: float
     total_runtime_seconds: float
+
 
 @dataclass(frozen=True)
 class ParallelKMeansResult:
@@ -171,8 +178,6 @@ def fit_parallel_kmeans(
         + center_aggregation_seconds
     )
 
-    global_start = perf_counter()
-
     global_result = fit_global_kmeans(
         rdd,
         initialization.global_centers,
@@ -181,7 +186,11 @@ def fit_parallel_kmeans(
     )
 
     global_clustering_seconds = (
-        perf_counter() - global_start
+        global_result.timing.iteration_seconds
+    )
+
+    final_evaluation_seconds = (
+        global_result.timing.final_evaluation_seconds
     )
 
     total_runtime_seconds = (
@@ -200,6 +209,9 @@ def fit_parallel_kmeans(
         ),
         global_clustering_seconds=(
             global_clustering_seconds
+        ),
+        final_evaluation_seconds=(
+            final_evaluation_seconds
         ),
         total_runtime_seconds=(
             total_runtime_seconds

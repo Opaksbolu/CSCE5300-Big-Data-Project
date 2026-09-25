@@ -236,6 +236,8 @@ def test_global_kmeans_rejects_negative_tolerance(spark) -> None:
             initial_centers=((1.0, 1.0),),
             tolerance=-1.0,
         )
+
+
 def test_final_sse_matches_returned_centers_after_iteration_limit(
     spark,
 ) -> None:
@@ -285,6 +287,8 @@ def test_final_sse_matches_returned_centers_after_iteration_limit(
 
     assert result.sse == pytest.approx(16.0)
     assert sorted(result.cluster_counts) == [4, 4]
+
+
 def test_global_kmeans_rejects_empty_rdd(spark) -> None:
     """
     Distributed K-Means requires at least one input record.
@@ -300,3 +304,97 @@ def test_global_kmeans_rejects_empty_rdd(spark) -> None:
             rdd,
             initial_centers=((1.0, 1.0),),
         )
+
+
+def test_global_kmeans_reports_nonnegative_timing(spark) -> None:
+    """
+    Global K-Means should report nonnegative runtime measurements
+    for the iterative clustering and final evaluation phases.
+    """
+
+    points = [
+        (0.0, 0.0),
+        (0.0, 2.0),
+        (2.0, 0.0),
+        (2.0, 2.0),
+        (8.0, 8.0),
+        (8.0, 10.0),
+        (10.0, 8.0),
+        (10.0, 10.0),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_global_kmeans(
+        rdd,
+        initial_centers=(
+            (0.0, 0.0),
+            (10.0, 10.0),
+        ),
+        max_iterations=20,
+        tolerance=1e-12,
+    )
+
+    timing = result.timing
+
+    assert timing.iteration_seconds >= 0.0
+    assert timing.final_evaluation_seconds >= 0.0
+    assert timing.total_seconds >= 0.0
+
+
+def test_global_kmeans_timing_is_internally_consistent(
+    spark,
+) -> None:
+    """
+    Total global runtime should cover both the iterative clustering
+    phase and the separate final-center evaluation phase.
+    """
+
+    points = [
+        (0.0, 0.0),
+        (0.0, 2.0),
+        (2.0, 0.0),
+        (2.0, 2.0),
+        (8.0, 8.0),
+        (8.0, 10.0),
+        (10.0, 8.0),
+        (10.0, 10.0),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_global_kmeans(
+        rdd,
+        initial_centers=(
+            (0.0, 0.0),
+            (10.0, 10.0),
+        ),
+        max_iterations=20,
+        tolerance=1e-12,
+    )
+
+    timing = result.timing
+
+    assert (
+        timing.total_seconds
+        >= timing.iteration_seconds
+    )
+
+    assert (
+        timing.total_seconds
+        >= timing.final_evaluation_seconds
+    )
+
+    assert (
+        timing.total_seconds
+        >= (
+            timing.iteration_seconds
+            + timing.final_evaluation_seconds
+        )
+    )

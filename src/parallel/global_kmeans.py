@@ -5,13 +5,15 @@ This module repeatedly executes the tested Spark global-iteration
 operation until the cluster centers converge or the configured
 maximum number of iterations is reached.
 
-The implementation records per-iteration metrics so that convergence
-behavior can later be analyzed in project experiments and reports.
+The implementation records per-iteration metrics and separates
+iterative clustering time from final evaluation time so that
+experimental runtime measurements have clear boundaries.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Sequence
 
 from pyspark import RDD
@@ -39,6 +41,26 @@ class IterationMetrics:
 
 
 @dataclass(frozen=True)
+class GlobalKMeansTiming:
+    """
+    Runtime measurements for distributed global K-Means.
+
+    iteration_seconds measures only the repeated center-assignment
+    and center-update loop.
+
+    final_evaluation_seconds measures the separate Spark operation
+    used to evaluate SSE and cluster counts against the final centers.
+
+    total_seconds covers both measured phases plus negligible
+    orchestration overhead between them.
+    """
+
+    iteration_seconds: float
+    final_evaluation_seconds: float
+    total_seconds: float
+
+
+@dataclass(frozen=True)
 class GlobalKMeansResult:
     """
     Final result of the distributed global K-Means convergence loop.
@@ -50,6 +72,7 @@ class GlobalKMeansResult:
     sse: float
     cluster_counts: tuple[int, ...]
     history: tuple[IterationMetrics, ...]
+    timing: GlobalKMeansTiming
 
 
 def evaluate_centers(
@@ -162,7 +185,8 @@ def fit_global_kmeans(
     -------
     GlobalKMeansResult
         Final centers, convergence information, cluster counts,
-        SSE, and per-iteration metrics.
+        SSE, per-iteration metrics, and separated runtime
+        measurements.
     """
 
     if not initial_centers:
@@ -190,6 +214,9 @@ def fit_global_kmeans(
     history: list[IterationMetrics] = []
 
     converged = False
+
+    total_start = perf_counter()
+    iteration_start = perf_counter()
 
     for iteration_number in range(
         1,
@@ -222,9 +249,31 @@ def fit_global_kmeans(
             converged = True
             break
 
+    iteration_seconds = (
+        perf_counter() - iteration_start
+    )
+
+    evaluation_start = perf_counter()
+
     final_sse, final_cluster_counts = evaluate_centers(
         rdd,
         centers,
+    )
+
+    final_evaluation_seconds = (
+        perf_counter() - evaluation_start
+    )
+
+    total_seconds = (
+        perf_counter() - total_start
+    )
+
+    timing = GlobalKMeansTiming(
+        iteration_seconds=iteration_seconds,
+        final_evaluation_seconds=(
+            final_evaluation_seconds
+        ),
+        total_seconds=total_seconds,
     )
 
     return GlobalKMeansResult(
@@ -234,4 +283,5 @@ def fit_global_kmeans(
         sse=final_sse,
         cluster_counts=final_cluster_counts,
         history=tuple(history),
+        timing=timing,
     )

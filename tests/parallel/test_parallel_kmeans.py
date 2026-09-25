@@ -20,6 +20,8 @@ import pytest
 from pyspark.errors import PythonException
 
 from src.parallel.parallel_kmeans import fit_parallel_kmeans
+
+
 def test_parallel_kmeans_executes_complete_pipeline(spark) -> None:
     """
     The complete pipeline should identify two clearly separated
@@ -299,6 +301,8 @@ def test_parallel_kmeans_rejects_empty_rdd(spark) -> None:
             rdd,
             k=2,
         )
+
+
 def test_parallel_kmeans_rejects_partition_smaller_than_k(
     spark,
 ) -> None:
@@ -332,6 +336,8 @@ def test_parallel_kmeans_rejects_partition_smaller_than_k(
             k=3,
             random_seed=42,
         )
+
+
 def test_parallel_kmeans_reports_nonnegative_timing(
     spark,
 ) -> None:
@@ -366,6 +372,7 @@ def test_parallel_kmeans_reports_nonnegative_timing(
     assert timing.center_aggregation_seconds >= 0.0
     assert timing.initialization_seconds >= 0.0
     assert timing.global_clustering_seconds >= 0.0
+    assert timing.final_evaluation_seconds >= 0.0
     assert timing.total_runtime_seconds >= 0.0
 
 
@@ -421,8 +428,14 @@ def test_parallel_kmeans_timing_is_internally_consistent(
 
     assert (
         timing.total_runtime_seconds
+        >= timing.final_evaluation_seconds
+    )
+
+    assert (
+        timing.total_runtime_seconds
         >= (
             timing.initialization_seconds
             + timing.global_clustering_seconds
+            + timing.final_evaluation_seconds
         )
     )
