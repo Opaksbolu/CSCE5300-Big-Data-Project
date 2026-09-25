@@ -145,14 +145,19 @@ Current measurements include:
 - partition clustering time,
 - candidate-center aggregation time,
 - total initialization time,
-- global clustering time, and
+- iterative distributed global K-Means clustering time,
+- final-center evaluation time, and
 - total pipeline runtime.
+
+`global_clustering_seconds` measures only the repeated distributed assignment and center-update loop.
+
+`final_evaluation_seconds` measures the separate Spark operation used to calculate final SSE and cluster counts against the returned centers.
 
 The timing relationships are covered by automated tests.
 
 ### Important Timing Note
 
-The current `global_clustering_seconds` measurement wraps the complete `fit_global_kmeans()` call, including final evaluation. It therefore should not yet be treated as directly equivalent to the clustering-time definition used in the reference paper. Before direct paper-to-project runtime comparisons, iterative clustering time and final evaluation time will be separated.
+Separating iterative clustering from final evaluation provides clearer experimental timing boundaries and makes later comparison with the reference paper more defensible. Report-grade runtime comparisons will additionally control RDD persistence and materialization so that repeated Spark lineage computation does not distort the measured clustering phase.
 
 ---
 
@@ -166,6 +171,9 @@ CSCE5300-Big-Data-Project/
 |
 |-- src/
 |   |-- __init__.py
+|   |-- experiments/
+|   |   |-- __init__.py
+|   |   `-- synthetic_data.py
 |   `-- parallel/
 |       |-- __init__.py
 |       |-- center_aggregation.py
@@ -184,6 +192,9 @@ CSCE5300-Big-Data-Project/
 |
 |-- tests/
 |   |-- __init__.py
+|   |-- experiments/
+|   |   |-- __init__.py
+|   |   `-- test_synthetic_data.py
 |   `-- parallel/
 |       |-- __init__.py
 |       |-- conftest.py
@@ -269,7 +280,7 @@ Run the complete test suite:
 python -m pytest -v --tb=short
 ```
 
-At the current stable milestone, the project contains **58 passing tests** covering local K-Means mathematics, validation behavior, partition-level clustering, candidate-center aggregation, Spark integration, distributed global iterations, convergence, complete pipeline execution, reproducibility, and runtime instrumentation.
+At the current stable milestone, the project contains **81 passing tests** covering local K-Means mathematics, validation behavior, partition-level clustering, candidate-center aggregation, Spark integration, distributed global iterations, convergence, complete pipeline execution, reproducibility, runtime instrumentation, separated clustering and evaluation timing, and deterministic synthetic dataset generation.
 
 ---
 
@@ -297,7 +308,7 @@ This demonstration runs the complete Parallel K-Means pipeline on a small synthe
 
 The experimental framework will evaluate the implementation using controlled configurations. Planned variables include dataset size, feature count, number of clusters (`k`), Spark master configuration, RDD partition count, random seed, maximum iterations, convergence tolerance, and trial number.
 
-Measurements will include partition clustering time, center aggregation time, initialization time, global clustering time, total runtime, iterations completed, convergence status, SSE, and cluster counts.
+Measurements will include partition clustering time, center aggregation time, initialization time, iterative global clustering time, final evaluation time, total runtime, iterations completed, convergence status, SSE, and cluster counts.
 
 Initial local scalability experiments are planned for `local[1]`, `local[2]`, and `local[4]`. Dataset sizes will increase progressively so that correctness, memory behavior, and runtime characteristics can be validated at each scale.
 
@@ -355,7 +366,9 @@ Completed milestones:
 [Completed] End-to-end Spark demonstration
 [Completed] Runtime instrumentation
 [Completed] Runtime validation
-[Completed] 58-test regression suite
+[Completed] Deterministic synthetic benchmark datasets
+[Completed] Separate iteration and evaluation timing
+[Completed] 81-test regression suite
 ```
 
 Current development milestone:
@@ -367,11 +380,9 @@ Current development milestone:
 Planned work:
 
 ```text
-[Planned] Deterministic synthetic benchmark datasets
 [Planned] Experiment metadata schema
 [Planned] Controlled benchmark runner
 [Planned] RDD persistence strategy
-[Planned] Separate iteration and evaluation timing
 [Planned] local[1] / local[2] / local[4] experiments
 [Planned] Partition-count experiments
 [Planned] Repeated benchmark trials
@@ -396,7 +407,9 @@ The current environment uses Spark local mode on one physical machine. Although 
 
 ### Timing Definition
 
-The current global clustering timer includes final cluster evaluation. This will be separated before direct runtime comparisons with the paper.
+The runtime instrumentation separates iterative global clustering from final-center evaluation. Iterative clustering time, final evaluation time, initialization time, and total pipeline runtime are recorded independently.
+
+The remaining benchmark concern is RDD persistence and materialization. These will be controlled before direct runtime comparisons with the reference paper.
 
 ### Convergence Definition
 
