@@ -40,8 +40,8 @@ data/raw/
 data/processed/
 
 # Generated experiment output
-results/raw/*.csv
-results/raw/*.json
+results/raw/**/*.csv
+results/raw/**/*.json
 
 # Keep directories in Git
 !results/raw/.gitkeep
