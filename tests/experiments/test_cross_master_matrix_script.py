@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -97,6 +98,8 @@ def test_build_child_command_uses_module_execution():
         record_counts=(1000, 10000),
         partition_counts=(2, 4),
         repetitions=3,
+        warmup_runs=1,
+        aggregation_restarts=5,
         output_directory=Path("results/raw/example"),
         log_level="ERROR",
     )
@@ -111,8 +114,12 @@ def test_build_child_command_uses_module_execution():
         "1000,10000",
         "--partition-counts",
         "2,4",
-        "--repetitions",
+                "--repetitions",
         "3",
+        "--warmup-runs",
+        "1",
+        "--aggregation-restarts",
+        "5",
         "--output-directory",
         "results/raw/example",
         "--log-level",
@@ -137,6 +144,8 @@ def test_build_child_command_rejects_invalid_python_executable(
             record_counts=(1000,),
             partition_counts=(4,),
             repetitions=1,
+            warmup_runs=1,
+            aggregation_restarts=5,
             output_directory=Path("results/raw/example"),
             log_level="WARN",
         )
@@ -159,6 +168,8 @@ def test_build_child_command_rejects_invalid_repetitions(
             record_counts=(1000,),
             partition_counts=(4,),
             repetitions=repetitions,
+            warmup_runs=1,
+            aggregation_restarts=5,
             output_directory=Path("results/raw/example"),
             log_level="WARN",
         )
@@ -181,6 +192,8 @@ def test_build_child_command_rejects_invalid_log_level(
             record_counts=(1000,),
             partition_counts=(4,),
             repetitions=1,
+            warmup_runs=1,
+            aggregation_restarts=5,
             output_directory=Path("results/raw/example"),
             log_level=log_level,
         )
@@ -214,6 +227,8 @@ def test_cross_master_runner_launches_one_process_per_master(
         record_counts=(1000,),
         partition_counts=(4,),
         repetitions=2,
+        warmup_runs=1,
+        aggregation_restarts=5,
         output_directory=Path(
             "results/raw/cross-master-test"
         ),
@@ -266,6 +281,8 @@ def test_cross_master_runner_uses_common_output_root(
         record_counts=(1000,),
         partition_counts=(4,),
         repetitions=1,
+        warmup_runs=1,
+        aggregation_restarts=5,
         output_directory=output_root,
         log_level="WARN",
         python_executable="/example/python",
@@ -303,6 +320,8 @@ def test_cross_master_runner_uses_check_true(
         record_counts=(1000,),
         partition_counts=(4,),
         repetitions=1,
+        warmup_runs=1,
+        aggregation_restarts=5,
         output_directory=Path(
             "results/raw/test"
         ),
@@ -345,6 +364,8 @@ def test_cross_master_runner_stops_after_child_failure(
             record_counts=(1000,),
             partition_counts=(4,),
             repetitions=1,
+            warmup_runs=1,
+            aggregation_restarts=5,
             output_directory=Path(
                 "results/raw/test"
             ),
@@ -404,3 +425,70 @@ def test_parser_accepts_custom_configuration():
         "results/raw/custom"
     )
     assert args.log_level == "ERROR"
+
+
+def test_parser_accepts_warmup_and_aggregation_restarts():
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "--warmup-runs",
+            "2",
+            "--aggregation-restarts",
+            "7",
+        ]
+    )
+
+    assert args.warmup_runs == 2
+    assert args.aggregation_restarts == 7
+
+
+def test_parser_uses_expected_benchmark_defaults():
+    parser = build_parser()
+
+    args = parser.parse_args([])
+
+    assert args.warmup_runs == 1
+    assert args.aggregation_restarts == 5
+
+
+@pytest.mark.parametrize("warmup_runs", [-1, -2])
+def test_build_child_command_rejects_negative_warmup_runs(
+    warmup_runs,
+):
+    with pytest.raises(
+        ValueError,
+        match="warmup_runs must be zero or greater",
+    ):
+        build_child_command(
+            python_executable=sys.executable,
+            master="local[2]",
+            record_counts=(1000,),
+            partition_counts=(4,),
+            repetitions=1,
+            warmup_runs=warmup_runs,
+            aggregation_restarts=5,
+            output_directory=Path("results/raw/test"),
+            log_level="WARN",
+        )
+
+
+@pytest.mark.parametrize("aggregation_restarts", [0, -1])
+def test_build_child_command_rejects_nonpositive_aggregation_restarts(
+    aggregation_restarts,
+):
+    with pytest.raises(
+        ValueError,
+        match="aggregation_restarts must be greater than zero",
+    ):
+        build_child_command(
+            python_executable=sys.executable,
+            master="local[2]",
+            record_counts=(1000,),
+            partition_counts=(4,),
+            repetitions=1,
+            warmup_runs=1,
+            aggregation_restarts=aggregation_restarts,
+            output_directory=Path("results/raw/test"),
+            log_level="WARN",
+        )

@@ -9,6 +9,7 @@ processes so that Spark application contexts remain isolated.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 from src.experiments.experiment_matrix import (
@@ -16,6 +17,7 @@ from src.experiments.experiment_matrix import (
 )
 from src.experiments.experiment_runner import (
     SyntheticExperimentConfig,
+    run_synthetic_experiment,
 )
 from src.experiments.master_matrix import master_output_name
 from src.parallel.spark_session import (
@@ -43,6 +45,42 @@ def parse_positive_int_csv(value: str) -> tuple[int, ...]:
         )
 
     return values
+
+
+def run_warmup_experiments(
+    spark,
+    config: SyntheticExperimentConfig,
+    *,
+    warmup_runs: int,
+) -> None:
+    """
+    Execute unmeasured warm-up experiments.
+
+    Warm-up runs exercise the complete synthetic Parallel K-Means
+    pipeline without writing results. The supplied base configuration
+    is not modified, so measured repetitions retain their original
+    deterministic seed sequence.
+    """
+
+    if warmup_runs < 0:
+        raise ValueError(
+            "warmup_runs must be zero or greater."
+        )
+
+    for warmup_index in range(warmup_runs):
+        warmup_config = replace(
+            config,
+            experiment_id=(
+                f"{config.experiment_id}"
+                f"-warmup-{warmup_index + 1:02d}"
+            ),
+        )
+
+        run_synthetic_experiment(
+            spark,
+            warmup_config,
+            output_path=None,
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -87,7 +125,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="Number of repeated runs per matrix case.",
     )
+    parser.add_argument(
+        "--warmup-runs",
+        type=int,
+        default=1,
+        help=(
+            "Number of warm-up runs before measured repetitions. "
+            "Default: 1"
+        ),
+    )
 
+    parser.add_argument(
+        "--aggregation-restarts",
+        type=int,
+        default=5,
+        help=(
+            "Number of deterministic candidate-center aggregation "
+            "initializations. Default: 5"
+        ),
+    )
     parser.add_argument(
         "--output-directory",
         type=Path,
@@ -113,7 +169,15 @@ def main() -> int:
         raise SystemExit(
             "--repetitions must be greater than zero."
         )
+    if args.warmup_runs < 0:
+        raise SystemExit(
+            "--warmup-runs must be zero or greater."
+        )
 
+    if args.aggregation_restarts <= 0:
+        raise SystemExit(
+            "--aggregation-restarts must be greater than zero."
+        )
     output_directory = (
         args.output_directory
         / master_output_name(args.master)
@@ -132,6 +196,7 @@ def main() -> int:
         local_max_iterations=100,
         global_max_iterations=100,
         tolerance=1e-6,
+        aggregation_restarts=args.aggregation_restarts,
     )
 
     spark = create_spark_session(
@@ -172,7 +237,20 @@ def main() -> int:
             f"Repetitions: {args.repetitions}"
         )
         print(
+            f"Warm-up runs: {args.warmup_runs}"
+        )
+        print(
+            "Aggregation restarts: "
+            f"{args.aggregation_restarts}"
+        )
+        print(
             f"Output directory: {output_directory}"
+        )
+
+        run_warmup_experiments(
+            spark,
+            base_config,
+            warmup_runs=args.warmup_runs,
         )
 
         matrix = run_synthetic_experiment_matrix(

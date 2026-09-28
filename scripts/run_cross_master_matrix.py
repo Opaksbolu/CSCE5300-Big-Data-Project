@@ -75,6 +75,8 @@ def build_child_command(
     record_counts: tuple[int, ...],
     partition_counts: tuple[int, ...],
     repetitions: int,
+    warmup_runs: int,
+    aggregation_restarts: int,
     output_directory: Path,
     log_level: str,
 ) -> list[str]:
@@ -93,7 +95,15 @@ def build_child_command(
         raise ValueError(
             "repetitions must be greater than zero."
         )
+    if warmup_runs < 0:
+        raise ValueError(
+            "warmup_runs must be zero or greater."
+        )
 
+    if aggregation_restarts <= 0:
+        raise ValueError(
+            "aggregation_restarts must be greater than zero."
+        )
     if not isinstance(log_level, str) or not log_level.strip():
         raise ValueError(
             "log_level must be a nonempty string."
@@ -111,6 +121,10 @@ def build_child_command(
         format_positive_int_csv(partition_counts),
         "--repetitions",
         str(repetitions),
+        "--warmup-runs",
+        str(warmup_runs),
+        "--aggregation-restarts",
+        str(aggregation_restarts),
         "--output-directory",
         str(output_directory),
         "--log-level",
@@ -124,6 +138,8 @@ def run_cross_master_processes(
     record_counts: tuple[int, ...],
     partition_counts: tuple[int, ...],
     repetitions: int,
+    warmup_runs: int,
+    aggregation_restarts: int,
     output_directory: Path,
     log_level: str,
     python_executable: str = sys.executable,
@@ -142,6 +158,8 @@ def run_cross_master_processes(
             record_counts=record_counts,
             partition_counts=partition_counts,
             repetitions=repetitions,
+            warmup_runs=warmup_runs,
+            aggregation_restarts=aggregation_restarts,
             output_directory=output_directory,
             log_level=log_level,
         )
@@ -208,7 +226,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="Number of repeated runs per matrix case.",
     )
+    parser.add_argument(
+        "--warmup-runs",
+        type=int,
+        default=1,
+        help=(
+            "Number of warm-up runs per isolated Spark master. "
+            "Default: 1"
+        ),
+    )
 
+    parser.add_argument(
+        "--aggregation-restarts",
+        type=int,
+        default=5,
+        help=(
+            "Number of deterministic candidate-center aggregation "
+            "initializations. Default: 5"
+        ),
+    )
     parser.add_argument(
         "--output-directory",
         type=Path,
@@ -234,7 +270,15 @@ def main() -> int:
         raise SystemExit(
             "--repetitions must be greater than zero."
         )
+    if args.warmup_runs < 0:
+        raise SystemExit(
+            "--warmup-runs must be zero or greater."
+        )
 
+    if args.aggregation_restarts <= 0:
+        raise SystemExit(
+            "--aggregation-restarts must be greater than zero."
+        )
     print(
         "Cross-master experiment controller started."
     )
@@ -251,6 +295,13 @@ def main() -> int:
         f"Repetitions: {args.repetitions}"
     )
     print(
+        f"Warm-up runs: {args.warmup_runs}"
+    )
+    print(
+        "Aggregation restarts: "
+        f"{args.aggregation_restarts}"
+    )
+    print(
         f"Output root: {args.output_directory}"
     )
 
@@ -259,6 +310,8 @@ def main() -> int:
         record_counts=args.record_counts,
         partition_counts=args.partition_counts,
         repetitions=args.repetitions,
+        warmup_runs=args.warmup_runs,
+        aggregation_restarts=args.aggregation_restarts,
         output_directory=args.output_directory,
         log_level=args.log_level,
     )
