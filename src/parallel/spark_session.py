@@ -21,8 +21,13 @@ cluster experiments without changing the clustering algorithm.
 """
 
 from __future__ import annotations
+import os
+import sys
 
 from pyspark.sql import SparkSession
+
+os.environ["PYSPARK_PYTHON"] = sys.executable
+os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
 DEFAULT_APP_NAME = "CSCE5300-Parallel-KMeans"
 
