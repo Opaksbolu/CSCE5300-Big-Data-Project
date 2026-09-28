@@ -200,3 +200,20 @@ def test_experiment_result_is_immutable():
 
     with pytest.raises(Exception):
         result.num_records = 2000
+
+
+
+def test_experiment_result_records_aggregation_restarts():
+    """Standardized results should preserve aggregation restart metadata."""
+
+    result = create_experiment_result(
+        _make_benchmark(),
+        experiment_id="run-aggregation-restarts",
+        dataset_name="synthetic",
+        local_max_iterations=100,
+        global_max_iterations=100,
+        tolerance=1e-6,
+        aggregation_restarts=5,
+    )
+
+    assert result.aggregation_restarts == 5

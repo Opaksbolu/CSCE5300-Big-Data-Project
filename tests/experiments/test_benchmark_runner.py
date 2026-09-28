@@ -187,3 +187,27 @@ def test_create_persisted_rdd_unpersists_when_materialization_fails(
         )
 
     assert unpersist_called is True
+
+
+
+def test_benchmark_propagates_aggregation_restarts(spark) -> None:
+    """Benchmark should accept the aggregation restart configuration."""
+
+    dataset = generate_synthetic_dataset(
+        num_records=40,
+        num_features=2,
+        num_clusters=2,
+        cluster_spread=0.25,
+        center_separation=10.0,
+        random_seed=42,
+    )
+
+    result = run_parallel_kmeans_benchmark(
+        spark,
+        dataset,
+        num_partitions=2,
+        random_seed=42,
+        aggregation_restarts=5,
+    )
+
+    assert result.aggregation_restarts == 5

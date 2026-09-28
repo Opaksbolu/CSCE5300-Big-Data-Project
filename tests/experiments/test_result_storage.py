@@ -27,6 +27,7 @@ def _make_result(
         local_max_iterations=100,
         global_max_iterations=100,
         tolerance=1e-6,
+        aggregation_restarts=5,
         materialized_record_count=num_records,
         converged=True,
         iterations=2,
@@ -163,3 +164,24 @@ def test_append_experiment_result_rejects_directory_path(
             _make_result(),
             tmp_path,
         )
+
+
+
+def test_csv_preserves_aggregation_restarts(tmp_path):
+    """Persisted experiment rows should include aggregation restarts."""
+
+    output_path = tmp_path / "aggregation-restarts.csv"
+
+    append_experiment_result(
+        _make_result(),
+        output_path,
+    )
+
+    with output_path.open(
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert "aggregation_restarts" in CSV_FIELDNAMES
+    assert rows[0]["aggregation_restarts"] == "5"

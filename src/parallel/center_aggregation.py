@@ -51,6 +51,7 @@ def aggregate_candidate_centers(
     max_iterations: int = 100,
     tolerance: float = 1e-6,
     random_seed: int = 42,
+    num_restarts: int = 1,
 ) -> CenterAggregationResult:
     """
     Re-cluster candidate centers into k global initialization centers.
@@ -70,7 +71,12 @@ def aggregate_candidate_centers(
         Convergence threshold for center movement.
 
     random_seed:
-        Seed used to make center initialization reproducible.
+        Base seed used to make center initialization reproducible.
+
+    num_restarts:
+        Number of deterministic K-Means initializations to evaluate.
+        Consecutive restarts use consecutive seeds beginning with
+        random_seed. The result with the lowest SSE is retained.
 
     Returns
     -------
@@ -94,12 +100,25 @@ def aggregate_candidate_centers(
             "The number of candidate centers must be at least k."
         )
 
-    clustering_result: LocalKMeansResult = fit_local_kmeans(
-        centers,
-        k=k,
-        max_iterations=max_iterations,
-        tolerance=tolerance,
-        random_seed=random_seed,
+    if num_restarts <= 0:
+        raise ValueError(
+            "num_restarts must be greater than zero."
+        )
+
+    clustering_results = tuple(
+        fit_local_kmeans(
+            centers,
+            k=k,
+            max_iterations=max_iterations,
+            tolerance=tolerance,
+            random_seed=random_seed + restart_index,
+        )
+        for restart_index in range(num_restarts)
+    )
+
+    clustering_result: LocalKMeansResult = min(
+        clustering_results,
+        key=lambda result: result.sse,
     )
 
     return CenterAggregationResult(
@@ -119,6 +138,7 @@ def aggregate_partition_results(
     max_iterations: int = 100,
     tolerance: float = 1e-6,
     random_seed: int = 42,
+    num_restarts: int = 1,
 ) -> CenterAggregationResult:
     """
     Convert partition results directly into global initial centers.
@@ -136,4 +156,5 @@ def aggregate_partition_results(
         max_iterations=max_iterations,
         tolerance=tolerance,
         random_seed=random_seed,
+        num_restarts=num_restarts,
     )

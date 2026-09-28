@@ -30,6 +30,7 @@ CSV_FIELDNAMES = (
     "local_max_iterations",
     "global_max_iterations",
     "tolerance",
+    "aggregation_restarts",
     "materialized_record_count",
     "converged",
     "iterations",

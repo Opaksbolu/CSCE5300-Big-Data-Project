@@ -35,6 +35,7 @@ class ExperimentResult:
     local_max_iterations: int
     global_max_iterations: int
     tolerance: float
+    aggregation_restarts: int
 
     materialized_record_count: int
 
@@ -59,6 +60,7 @@ def create_experiment_result(
     local_max_iterations: int,
     global_max_iterations: int,
     tolerance: float,
+    aggregation_restarts: int = 5,
 ) -> ExperimentResult:
     """
     Convert one controlled benchmark result into a flat experiment record.
@@ -84,6 +86,11 @@ def create_experiment_result(
             "global_max_iterations must be greater than zero."
         )
 
+    if aggregation_restarts <= 0:
+        raise ValueError(
+            "aggregation_restarts must be greater than zero."
+        )
+
     if not isfinite(tolerance):
         raise ValueError("tolerance must be finite.")
 
@@ -105,6 +112,7 @@ def create_experiment_result(
         local_max_iterations=local_max_iterations,
         global_max_iterations=global_max_iterations,
         tolerance=tolerance,
+        aggregation_restarts=aggregation_restarts,
         materialized_record_count=(
             benchmark.materialized_record_count
         ),

@@ -38,6 +38,7 @@ class BenchmarkResult:
     num_partitions: int
     spark_master: str
     random_seed: int
+    aggregation_restarts: int
     materialized_record_count: int
     clustering_result: ParallelKMeansResult
 
@@ -85,6 +86,7 @@ def run_parallel_kmeans_benchmark(
     local_max_iterations: int = 100,
     global_max_iterations: int = 100,
     tolerance: float = 1e-6,
+    aggregation_restarts: int = 5,
 ) -> BenchmarkResult:
     """
     Execute one controlled Parallel K-Means benchmark.
@@ -110,6 +112,7 @@ def run_parallel_kmeans_benchmark(
             global_max_iterations=global_max_iterations,
             tolerance=tolerance,
             random_seed=random_seed,
+            aggregation_restarts=aggregation_restarts,
         )
 
         return BenchmarkResult(
@@ -119,6 +122,7 @@ def run_parallel_kmeans_benchmark(
             num_partitions=rdd.getNumPartitions(),
             spark_master=spark.sparkContext.master,
             random_seed=random_seed,
+            aggregation_restarts=aggregation_restarts,
             materialized_record_count=materialized_record_count,
             clustering_result=clustering_result,
         )

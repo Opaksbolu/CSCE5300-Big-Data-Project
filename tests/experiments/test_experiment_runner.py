@@ -142,3 +142,32 @@ def test_run_synthetic_experiment_is_reproducible_in_quality(
     assert first.cluster_counts == second.cluster_counts
     assert first.iterations == second.iterations
     assert first.sse == second.sse
+
+
+
+def test_run_synthetic_experiment_records_aggregation_restarts(
+    spark,
+):
+    """Experiment results should preserve aggregation restart metadata."""
+
+    config = SyntheticExperimentConfig(
+        experiment_id="aggregation-restart-test",
+        num_records=40,
+        num_features=2,
+        num_clusters=2,
+        num_partitions=2,
+        cluster_spread=0.25,
+        center_separation=10.0,
+        random_seed=42,
+        local_max_iterations=20,
+        global_max_iterations=20,
+        tolerance=1e-6,
+        aggregation_restarts=5,
+    )
+
+    result = run_synthetic_experiment(
+        spark,
+        config,
+    )
+
+    assert result.aggregation_restarts == 5

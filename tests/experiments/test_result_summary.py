@@ -35,6 +35,7 @@ def _make_result(
         local_max_iterations=100,
         global_max_iterations=100,
         tolerance=1e-6,
+        aggregation_restarts=5,
         materialized_record_count=1000,
         converged=converged,
         iterations=iterations,

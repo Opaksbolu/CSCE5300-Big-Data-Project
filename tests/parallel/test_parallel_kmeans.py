@@ -439,3 +439,66 @@ def test_parallel_kmeans_timing_is_internally_consistent(
             + timing.final_evaluation_seconds
         )
     )
+
+
+def test_parallel_kmeans_accepts_aggregation_restarts(
+    spark,
+) -> None:
+    """
+    The complete pipeline should expose the number of deterministic
+    candidate-center aggregation restarts.
+    """
+
+    points = [
+        (0.8, 1.0),
+        (1.0, 0.8),
+        (1.0, 1.0),
+        (1.0, 1.2),
+        (1.2, 1.0),
+        (1.2, 1.2),
+        (8.8, 9.0),
+        (9.0, 8.8),
+        (9.0, 9.0),
+        (9.0, 9.2),
+        (9.2, 9.0),
+        (9.2, 9.2),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_parallel_kmeans(
+        rdd,
+        k=2,
+        random_seed=42,
+        aggregation_restarts=5,
+    )
+
+    assert result.converged is True
+    assert sum(result.cluster_counts) == len(points)
+
+def test_parallel_kmeans_rejects_nonpositive_aggregation_restarts(
+    spark,
+) -> None:
+    """The pipeline must require at least one aggregation restart."""
+
+    rdd = spark.sparkContext.parallelize(
+        [
+            (0.0, 0.0),
+            (1.0, 1.0),
+        ],
+        1,
+    )
+
+    for aggregation_restarts in (0, -1):
+        with pytest.raises(
+            ValueError,
+            match="aggregation_restarts must be greater than zero",
+        ):
+            fit_parallel_kmeans(
+                rdd,
+                k=1,
+                aggregation_restarts=aggregation_restarts,
+            )

@@ -80,6 +80,7 @@ def fit_parallel_kmeans(
     global_max_iterations: int = 100,
     tolerance: float = 1e-6,
     random_seed: int = 42,
+    aggregation_restarts: int = 5,
 ) -> ParallelKMeansResult:
     """
     Execute the complete improved Parallel K-Means workflow.
@@ -105,6 +106,10 @@ def fit_parallel_kmeans(
     random_seed:
         Seed used to make local initialization reproducible.
 
+    aggregation_restarts:
+        Number of deterministic candidate-center aggregation
+        initializations to evaluate. The lowest-SSE result is retained.
+
     Returns
     -------
     ParallelKMeansResult
@@ -129,6 +134,11 @@ def fit_parallel_kmeans(
     if tolerance < 0:
         raise ValueError(
             "tolerance cannot be negative."
+        )
+
+    if aggregation_restarts <= 0:
+        raise ValueError(
+            "aggregation_restarts must be greater than zero."
         )
 
     if rdd.isEmpty():
@@ -167,6 +177,7 @@ def fit_parallel_kmeans(
         max_iterations=local_max_iterations,
         tolerance=tolerance,
         random_seed=random_seed,
+        num_restarts=aggregation_restarts,
     )
 
     center_aggregation_seconds = (
