@@ -37,6 +37,24 @@ def _parse_point(line: str) -> Point:
     )
 
 
+def _ensure_exact_partition_count(
+    rdd: RDD,
+    *,
+    num_partitions: int,
+) -> RDD:
+    """Return an RDD with exactly the requested partition count."""
+
+    current_partitions = rdd.getNumPartitions()
+
+    if current_partitions > num_partitions:
+        return rdd.coalesce(num_partitions)
+
+    if current_partitions < num_partitions:
+        return rdd.repartition(num_partitions)
+
+    return rdd
+
+
 def create_persisted_file_rdd(
     spark: SparkSession,
     dataset: FileDataset,
@@ -64,6 +82,10 @@ def create_persisted_file_rdd(
         .map(_parse_point)
     )
 
+    rdd = _ensure_exact_partition_count(
+        rdd,
+        num_partitions=num_partitions,
+    )
     rdd.persist()
 
     try:

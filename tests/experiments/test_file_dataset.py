@@ -10,6 +10,7 @@ import pytest
 
 from src.experiments.file_dataset import (
     FileDataset,
+    _ensure_exact_partition_count,
     _parse_point,
     create_persisted_file_rdd,
 )
@@ -73,7 +74,7 @@ def test_create_persisted_file_rdd_materializes_dataset(
 
     try:
         assert record_count == 4
-        assert rdd.getNumPartitions() >= 2
+        assert rdd.getNumPartitions() == 2
         assert rdd.is_cached
         assert rdd.collect() == points
     finally:
@@ -174,3 +175,62 @@ def test_file_dataset_preserves_numeric_content(
         assert rdd.collect() == points
     finally:
         rdd.unpersist()
+
+
+def test_ensure_exact_partition_count_coalesces_excess_partitions(
+    spark,
+) -> None:
+    """Excess input partitions should be reduced without a shuffle."""
+
+    source = spark.sparkContext.parallelize(
+        range(12),
+        6,
+    )
+
+    adjusted = _ensure_exact_partition_count(
+        source,
+        num_partitions=4,
+    )
+
+    assert source.getNumPartitions() == 6
+    assert adjusted.getNumPartitions() == 4
+    assert sorted(adjusted.collect()) == list(range(12))
+
+
+def test_ensure_exact_partition_count_repartitions_when_too_small(
+    spark,
+) -> None:
+    """Too few input partitions should be expanded to the request."""
+
+    source = spark.sparkContext.parallelize(
+        range(12),
+        2,
+    )
+
+    adjusted = _ensure_exact_partition_count(
+        source,
+        num_partitions=4,
+    )
+
+    assert source.getNumPartitions() == 2
+    assert adjusted.getNumPartitions() == 4
+    assert sorted(adjusted.collect()) == list(range(12))
+
+
+def test_ensure_exact_partition_count_preserves_matching_rdd(
+    spark,
+) -> None:
+    """An already matching RDD should be returned unchanged."""
+
+    source = spark.sparkContext.parallelize(
+        range(12),
+        4,
+    )
+
+    adjusted = _ensure_exact_partition_count(
+        source,
+        num_partitions=4,
+    )
+
+    assert adjusted is source
+    assert adjusted.getNumPartitions() == 4
