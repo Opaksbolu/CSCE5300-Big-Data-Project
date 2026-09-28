@@ -114,12 +114,16 @@ def test_build_child_command_uses_module_execution():
         "1000,10000",
         "--partition-counts",
         "2,4",
-                "--repetitions",
+        "--repetitions",
         "3",
         "--warmup-runs",
         "1",
         "--aggregation-restarts",
         "5",
+        "--input-mode",
+        "memory",
+        "--dataset-directory",
+        "data/generated/cross-master",
         "--output-directory",
         "results/raw/example",
         "--log-level",
@@ -489,6 +493,123 @@ def test_build_child_command_rejects_nonpositive_aggregation_restarts(
             repetitions=1,
             warmup_runs=1,
             aggregation_restarts=aggregation_restarts,
+            output_directory=Path("results/raw/test"),
+            log_level="WARN",
+        )
+
+def test_build_child_command_forwards_file_input_configuration():
+    dataset_root = Path("data/generated/file-backed")
+
+    command = build_child_command(
+        python_executable="/example/python",
+        master="local[4]",
+        record_counts=(1000,),
+        partition_counts=(4,),
+        repetitions=2,
+        warmup_runs=1,
+        aggregation_restarts=5,
+        input_mode="file",
+        dataset_directory=dataset_root,
+        output_directory=Path("results/raw/example"),
+        log_level="WARN",
+    )
+
+    input_index = command.index("--input-mode") + 1
+    dataset_index = (
+        command.index("--dataset-directory") + 1
+    )
+
+    assert command[input_index] == "file"
+    assert command[dataset_index] == str(dataset_root)
+
+
+def test_cross_master_runner_forwards_common_file_input_root(
+    monkeypatch,
+):
+    commands = []
+
+    def fake_run(command, *, check):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(
+        "scripts.run_cross_master_matrix.subprocess.run",
+        fake_run,
+    )
+
+    dataset_root = Path("data/generated/common-root")
+
+    run_cross_master_processes(
+        spark_masters=DEFAULT_MASTERS,
+        record_counts=(1000,),
+        partition_counts=(4,),
+        repetitions=1,
+        warmup_runs=1,
+        aggregation_restarts=5,
+        input_mode="file",
+        dataset_directory=dataset_root,
+        output_directory=Path("results/raw/test"),
+        log_level="WARN",
+        python_executable="/example/python",
+    )
+
+    assert len(commands) == len(DEFAULT_MASTERS)
+
+    for command in commands:
+        input_index = command.index("--input-mode") + 1
+        dataset_index = (
+            command.index("--dataset-directory") + 1
+        )
+
+        assert command[input_index] == "file"
+        assert command[dataset_index] == str(
+            dataset_root
+        )
+
+
+def test_parser_accepts_file_input_configuration():
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "--input-mode",
+            "file",
+            "--dataset-directory",
+            "data/generated/custom",
+        ]
+    )
+
+    assert args.input_mode == "file"
+    assert args.dataset_directory == Path(
+        "data/generated/custom"
+    )
+
+
+def test_parser_uses_memory_input_by_default():
+    parser = build_parser()
+
+    args = parser.parse_args([])
+
+    assert args.input_mode == "memory"
+    assert args.dataset_directory == Path(
+        "data/generated/cross-master"
+    )
+
+
+def test_build_child_command_rejects_unknown_input_mode():
+    with pytest.raises(
+        ValueError,
+        match="input_mode must be 'memory' or 'file'",
+    ):
+        build_child_command(
+            python_executable="/example/python",
+            master="local[2]",
+            record_counts=(1000,),
+            partition_counts=(4,),
+            repetitions=1,
+            warmup_runs=1,
+            aggregation_restarts=5,
+            input_mode="unknown",
             output_directory=Path("results/raw/test"),
             log_level="WARN",
         )

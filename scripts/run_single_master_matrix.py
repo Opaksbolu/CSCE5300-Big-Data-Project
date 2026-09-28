@@ -13,10 +13,12 @@ from dataclasses import replace
 from pathlib import Path
 
 from src.experiments.experiment_matrix import (
+    run_file_backed_synthetic_experiment_matrix,
     run_synthetic_experiment_matrix,
 )
 from src.experiments.experiment_runner import (
     SyntheticExperimentConfig,
+    run_file_backed_synthetic_experiment,
     run_synthetic_experiment,
 )
 from src.experiments.master_matrix import master_output_name
@@ -52,6 +54,8 @@ def run_warmup_experiments(
     config: SyntheticExperimentConfig,
     *,
     warmup_runs: int,
+    input_mode: str = "memory",
+    dataset_directory: str | Path | None = None,
 ) -> None:
     """
     Execute unmeasured warm-up experiments.
@@ -76,11 +80,42 @@ def run_warmup_experiments(
             ),
         )
 
-        run_synthetic_experiment(
-            spark,
-            warmup_config,
-            output_path=None,
-        )
+        if input_mode == "memory":
+            run_synthetic_experiment(
+                spark,
+                warmup_config,
+                output_path=None,
+            )
+        elif input_mode == "file":
+            if dataset_directory is None:
+                raise ValueError(
+                    "dataset_directory is required "
+                    "for file input mode."
+                )
+
+            dataset_root = Path(
+                dataset_directory
+            ).expanduser()
+
+            dataset_path = (
+                dataset_root
+                / "warmups"
+                / (
+                    f"{warmup_config.experiment_id}"
+                    f"-seed-{warmup_config.random_seed}.csv"
+                )
+            )
+
+            run_file_backed_synthetic_experiment(
+                spark,
+                warmup_config,
+                dataset_path=dataset_path,
+                output_path=None,
+            )
+        else:
+            raise ValueError(
+                "input_mode must be 'memory' or 'file'."
+            )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -145,6 +180,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--input-mode",
+        choices=("memory", "file"),
+        default="memory",
+        help=(
+            "Synthetic input mode: memory or file. "
+            "Default: memory"
+        ),
+    )
+
+    parser.add_argument(
+        "--dataset-directory",
+        type=Path,
+        default=Path("data/generated/cross-master"),
+        help=(
+            "Root directory for generated file-backed datasets. "
+            "Used when --input-mode=file."
+        ),
+    )
+
+    parser.add_argument(
         "--output-directory",
         type=Path,
         default=Path("results/raw/cross-master"),
@@ -178,9 +233,18 @@ def main() -> int:
         raise SystemExit(
             "--aggregation-restarts must be greater than zero."
         )
+    master_name = master_output_name(
+        args.master
+    )
+
     output_directory = (
         args.output_directory
-        / master_output_name(args.master)
+        / master_name
+    )
+
+    dataset_directory = (
+        args.dataset_directory
+        / master_name
     )
 
     base_config = SyntheticExperimentConfig(
@@ -244,6 +308,12 @@ def main() -> int:
             f"{args.aggregation_restarts}"
         )
         print(
+            f"Input mode: {args.input_mode}"
+        )
+        print(
+            f"Dataset directory: {dataset_directory}"
+        )
+        print(
             f"Output directory: {output_directory}"
         )
 
@@ -251,16 +321,29 @@ def main() -> int:
             spark,
             base_config,
             warmup_runs=args.warmup_runs,
+            input_mode=args.input_mode,
+            dataset_directory=dataset_directory,
         )
 
-        matrix = run_synthetic_experiment_matrix(
-            spark,
-            base_config,
-            record_counts=args.record_counts,
-            partition_counts=args.partition_counts,
-            repetitions=args.repetitions,
-            output_directory=output_directory,
-        )
+        if args.input_mode == "memory":
+            matrix = run_synthetic_experiment_matrix(
+                spark,
+                base_config,
+                record_counts=args.record_counts,
+                partition_counts=args.partition_counts,
+                repetitions=args.repetitions,
+                output_directory=output_directory,
+            )
+        else:
+            matrix = run_file_backed_synthetic_experiment_matrix(
+                spark,
+                base_config,
+                record_counts=args.record_counts,
+                partition_counts=args.partition_counts,
+                repetitions=args.repetitions,
+                dataset_directory=dataset_directory,
+                output_directory=output_directory,
+            )
 
         print(
             f"Completed matrix cases: {len(matrix.cases)}"

@@ -77,6 +77,8 @@ def build_child_command(
     repetitions: int,
     warmup_runs: int,
     aggregation_restarts: int,
+    input_mode: str = "memory",
+    dataset_directory: Path = Path("data/generated/cross-master"),
     output_directory: Path,
     log_level: str,
 ) -> list[str]:
@@ -104,6 +106,10 @@ def build_child_command(
         raise ValueError(
             "aggregation_restarts must be greater than zero."
         )
+    if input_mode not in {"memory", "file"}:
+        raise ValueError(
+            "input_mode must be 'memory' or 'file'."
+        )
     if not isinstance(log_level, str) or not log_level.strip():
         raise ValueError(
             "log_level must be a nonempty string."
@@ -125,6 +131,10 @@ def build_child_command(
         str(warmup_runs),
         "--aggregation-restarts",
         str(aggregation_restarts),
+        "--input-mode",
+        input_mode,
+        "--dataset-directory",
+        str(dataset_directory),
         "--output-directory",
         str(output_directory),
         "--log-level",
@@ -140,6 +150,8 @@ def run_cross_master_processes(
     repetitions: int,
     warmup_runs: int,
     aggregation_restarts: int,
+    input_mode: str = "memory",
+    dataset_directory: Path = Path("data/generated/cross-master"),
     output_directory: Path,
     log_level: str,
     python_executable: str = sys.executable,
@@ -160,6 +172,8 @@ def run_cross_master_processes(
             repetitions=repetitions,
             warmup_runs=warmup_runs,
             aggregation_restarts=aggregation_restarts,
+            input_mode=input_mode,
+            dataset_directory=dataset_directory,
             output_directory=output_directory,
             log_level=log_level,
         )
@@ -246,6 +260,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--input-mode",
+        choices=("memory", "file"),
+        default="memory",
+        help=(
+            "Synthetic input mode: memory or file. "
+            "Default: memory"
+        ),
+    )
+
+    parser.add_argument(
+        "--dataset-directory",
+        type=Path,
+        default=Path("data/generated/cross-master"),
+        help=(
+            "Root directory for generated file-backed datasets. "
+            "Default: data/generated/cross-master"
+        ),
+    )
+
+    parser.add_argument(
         "--output-directory",
         type=Path,
         default=Path("results/raw/cross-master"),
@@ -302,6 +336,12 @@ def main() -> int:
         f"{args.aggregation_restarts}"
     )
     print(
+        f"Input mode: {args.input_mode}"
+    )
+    print(
+        f"Dataset root: {args.dataset_directory}"
+    )
+    print(
         f"Output root: {args.output_directory}"
     )
 
@@ -312,6 +352,8 @@ def main() -> int:
         repetitions=args.repetitions,
         warmup_runs=args.warmup_runs,
         aggregation_restarts=args.aggregation_restarts,
+        input_mode=args.input_mode,
+        dataset_directory=args.dataset_directory,
         output_directory=args.output_directory,
         log_level=args.log_level,
     )
