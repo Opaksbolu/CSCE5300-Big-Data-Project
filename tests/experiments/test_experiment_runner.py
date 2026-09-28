@@ -171,3 +171,144 @@ def test_run_synthetic_experiment_records_aggregation_restarts(
     )
 
     assert result.aggregation_restarts == 5
+
+
+def test_file_backed_synthetic_experiment_returns_standardized_result(
+    spark,
+    tmp_path,
+):
+    from src.experiments.experiment_runner import (
+        run_file_backed_synthetic_experiment,
+    )
+
+    config = _make_config(
+        experiment_id="file-backed-run",
+    )
+    dataset_path = tmp_path / "synthetic-points.csv"
+
+    result = run_file_backed_synthetic_experiment(
+        spark,
+        config,
+        dataset_path=dataset_path,
+    )
+
+    assert isinstance(result, ExperimentResult)
+    assert dataset_path.exists()
+
+    assert result.experiment_id == config.experiment_id
+    assert result.dataset_name == config.dataset_name
+    assert result.num_records == config.num_records
+    assert result.materialized_record_count == config.num_records
+    assert result.num_features == config.num_features
+    assert result.num_clusters == config.num_clusters
+    assert result.num_partitions >= config.num_partitions
+    assert result.random_seed == config.random_seed
+    assert result.aggregation_restarts == (
+        config.aggregation_restarts
+    )
+
+    assert sum(result.cluster_counts) == config.num_records
+    assert len(result.cluster_counts) == config.num_clusters
+    assert result.converged is True
+    assert result.iterations > 0
+    assert result.sse >= 0.0
+
+
+def test_file_backed_matches_in_memory_quality(
+    spark,
+    tmp_path,
+):
+    from src.experiments.experiment_runner import (
+        run_file_backed_synthetic_experiment,
+    )
+
+    config = _make_config(
+        experiment_id="quality-equivalence",
+    )
+
+    in_memory = run_synthetic_experiment(
+        spark,
+        config,
+    )
+
+    file_backed = run_file_backed_synthetic_experiment(
+        spark,
+        config,
+        dataset_path=tmp_path / "equivalent-points.csv",
+    )
+
+    assert file_backed.num_records == in_memory.num_records
+    assert file_backed.random_seed == in_memory.random_seed
+    assert file_backed.cluster_counts == in_memory.cluster_counts
+    assert file_backed.iterations == in_memory.iterations
+    assert file_backed.sse == in_memory.sse
+
+
+def test_file_backed_synthetic_experiment_can_persist_result(
+    spark,
+    tmp_path,
+):
+    from src.experiments.experiment_runner import (
+        run_file_backed_synthetic_experiment,
+    )
+
+    config = _make_config(
+        experiment_id="file-backed-persisted",
+    )
+    dataset_path = tmp_path / "points.csv"
+    output_path = tmp_path / "results.csv"
+
+    result = run_file_backed_synthetic_experiment(
+        spark,
+        config,
+        dataset_path=dataset_path,
+        output_path=output_path,
+    )
+
+    assert dataset_path.exists()
+    assert output_path.exists()
+
+    with output_path.open(
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert len(rows) == 1
+    assert rows[0]["experiment_id"] == result.experiment_id
+    assert rows[0]["num_records"] == str(result.num_records)
+    assert rows[0]["sse"] == str(result.sse)
+
+
+def test_file_backed_synthetic_experiment_is_reproducible(
+    spark,
+    tmp_path,
+):
+    from src.experiments.experiment_runner import (
+        run_file_backed_synthetic_experiment,
+    )
+
+    config = _make_config(
+        experiment_id="file-backed-reproducible",
+    )
+
+    first = run_file_backed_synthetic_experiment(
+        spark,
+        config,
+        dataset_path=tmp_path / "first.csv",
+    )
+
+    second = run_file_backed_synthetic_experiment(
+        spark,
+        config,
+        dataset_path=tmp_path / "second.csv",
+    )
+
+    assert first.cluster_counts == second.cluster_counts
+    assert first.iterations == second.iterations
+    assert first.sse == second.sse
+
+    assert (
+        (tmp_path / "first.csv").read_text()
+        == (tmp_path / "second.csv").read_text()
+    )
