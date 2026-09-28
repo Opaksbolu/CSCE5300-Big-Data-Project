@@ -21,6 +21,10 @@ from dataclasses import dataclass
 from pyspark import RDD
 from pyspark.sql import SparkSession
 
+from src.experiments.file_dataset import (
+    FileDataset,
+    create_persisted_file_rdd,
+)
 from src.experiments.synthetic_data import SyntheticDataset
 from src.parallel.parallel_kmeans import (
     ParallelKMeansResult,
@@ -77,6 +81,50 @@ def _create_persisted_rdd(
     return rdd, materialized_record_count
 
 
+def run_persisted_rdd_benchmark(
+    spark: SparkSession,
+    rdd: RDD,
+    *,
+    num_records: int,
+    num_features: int,
+    num_clusters: int,
+    materialized_record_count: int,
+    random_seed: int = 42,
+    local_max_iterations: int = 100,
+    global_max_iterations: int = 100,
+    tolerance: float = 1e-6,
+    aggregation_restarts: int = 5,
+) -> BenchmarkResult:
+    """
+    Execute Parallel K-Means against an already materialized RDD.
+
+    The caller retains ownership of RDD persistence and cleanup.
+    Input preparation is therefore kept outside clustering timing.
+    """
+
+    clustering_result = fit_parallel_kmeans(
+        rdd,
+        k=num_clusters,
+        local_max_iterations=local_max_iterations,
+        global_max_iterations=global_max_iterations,
+        tolerance=tolerance,
+        random_seed=random_seed,
+        aggregation_restarts=aggregation_restarts,
+    )
+
+    return BenchmarkResult(
+        num_records=num_records,
+        num_features=num_features,
+        num_clusters=num_clusters,
+        num_partitions=rdd.getNumPartitions(),
+        spark_master=spark.sparkContext.master,
+        random_seed=random_seed,
+        aggregation_restarts=aggregation_restarts,
+        materialized_record_count=materialized_record_count,
+        clustering_result=clustering_result,
+    )
+
+
 def run_parallel_kmeans_benchmark(
     spark: SparkSession,
     dataset: SyntheticDataset,
@@ -105,26 +153,64 @@ def run_parallel_kmeans_benchmark(
     )
 
     try:
-        clustering_result = fit_parallel_kmeans(
+        return run_persisted_rdd_benchmark(
+            spark,
             rdd,
-            k=dataset.num_clusters,
-            local_max_iterations=local_max_iterations,
-            global_max_iterations=global_max_iterations,
-            tolerance=tolerance,
-            random_seed=random_seed,
-            aggregation_restarts=aggregation_restarts,
-        )
-
-        return BenchmarkResult(
             num_records=dataset.num_records,
             num_features=dataset.num_features,
             num_clusters=dataset.num_clusters,
-            num_partitions=rdd.getNumPartitions(),
-            spark_master=spark.sparkContext.master,
-            random_seed=random_seed,
-            aggregation_restarts=aggregation_restarts,
             materialized_record_count=materialized_record_count,
-            clustering_result=clustering_result,
+            random_seed=random_seed,
+            local_max_iterations=local_max_iterations,
+            global_max_iterations=global_max_iterations,
+            tolerance=tolerance,
+            aggregation_restarts=aggregation_restarts,
+        )
+
+    finally:
+        rdd.unpersist()
+
+
+def run_file_parallel_kmeans_benchmark(
+    spark: SparkSession,
+    dataset: FileDataset,
+    *,
+    num_partitions: int,
+    random_seed: int = 42,
+    local_max_iterations: int = 100,
+    global_max_iterations: int = 100,
+    tolerance: float = 1e-6,
+    aggregation_restarts: int = 5,
+) -> BenchmarkResult:
+    """
+    Execute Parallel K-Means using a file-backed dataset.
+
+    Spark loads, persists, and materializes the input before the
+    clustering benchmark begins. The file-backed RDD is always
+    unpersisted afterward.
+    """
+
+    rdd, materialized_record_count = (
+        create_persisted_file_rdd(
+            spark,
+            dataset,
+            num_partitions=num_partitions,
+        )
+    )
+
+    try:
+        return run_persisted_rdd_benchmark(
+            spark,
+            rdd,
+            num_records=dataset.num_records,
+            num_features=dataset.num_features,
+            num_clusters=dataset.num_clusters,
+            materialized_record_count=materialized_record_count,
+            random_seed=random_seed,
+            local_max_iterations=local_max_iterations,
+            global_max_iterations=global_max_iterations,
+            tolerance=tolerance,
+            aggregation_restarts=aggregation_restarts,
         )
 
     finally:

@@ -219,3 +219,86 @@ def generate_synthetic_dataset(
         num_features=num_features,
         num_clusters=num_clusters,
     )
+
+
+def write_synthetic_dataset_file(
+    output_path,
+    *,
+    num_records: int,
+    num_features: int,
+    num_clusters: int,
+    cluster_spread: float = 1.0,
+    center_separation: float = 10.0,
+    random_seed: int = 42,
+) -> None:
+    """
+    Stream a deterministic synthetic dataset directly to a text file.
+
+    The generated point sequence is intentionally identical to
+    generate_synthetic_dataset for the same configuration and seed.
+    Points are written immediately instead of being retained as a
+    complete Python collection in driver memory.
+    """
+
+    from pathlib import Path
+
+    _validate_generation_parameters(
+        num_records=num_records,
+        num_features=num_features,
+        num_clusters=num_clusters,
+        cluster_spread=cluster_spread,
+    )
+
+    if not isfinite(center_separation):
+        raise ValueError(
+            "center_separation must be finite."
+        )
+
+    if center_separation <= 0:
+        raise ValueError(
+            "center_separation must be greater than zero."
+        )
+
+    random_generator = Random(random_seed)
+
+    cluster_centers = _generate_cluster_centers(
+        num_clusters=num_clusters,
+        num_features=num_features,
+        center_separation=center_separation,
+    )
+
+    base_cluster_size = num_records // num_clusters
+    remainder = num_records % num_clusters
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", encoding="utf-8") as handle:
+        for cluster_index, center in enumerate(
+            cluster_centers
+        ):
+            cluster_size = (
+                base_cluster_size
+                + (
+                    1
+                    if cluster_index < remainder
+                    else 0
+                )
+            )
+
+            for _ in range(cluster_size):
+                point = tuple(
+                    random_generator.gauss(
+                        coordinate,
+                        cluster_spread,
+                    )
+                    for coordinate in center
+                )
+
+                handle.write(
+                    ",".join(
+                        repr(value)
+                        for value in point
+                    )
+                )
+                handle.write("\n")

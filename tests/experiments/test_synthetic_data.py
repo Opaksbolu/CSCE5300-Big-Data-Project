@@ -249,3 +249,161 @@ def test_rejects_nonfinite_center_separation(
             num_clusters=2,
             center_separation=center_separation,
         )
+
+
+def _read_synthetic_point_file(path):
+    """Read a generated point file for exact-value testing."""
+
+    return tuple(
+        tuple(
+            float(value)
+            for value in line.split(",")
+        )
+        for line in path.read_text(
+            encoding="utf-8",
+        ).splitlines()
+    )
+
+
+def test_streaming_file_matches_in_memory_generator(
+    tmp_path,
+):
+    """Streaming generation should preserve exact point values."""
+
+    from src.experiments.synthetic_data import (
+        write_synthetic_dataset_file,
+    )
+
+    expected = generate_synthetic_dataset(
+        num_records=20,
+        num_features=4,
+        num_clusters=5,
+        cluster_spread=1.0,
+        center_separation=10.0,
+        random_seed=42,
+    )
+
+    output_path = tmp_path / "synthetic.csv"
+
+    write_synthetic_dataset_file(
+        output_path,
+        num_records=20,
+        num_features=4,
+        num_clusters=5,
+        cluster_spread=1.0,
+        center_separation=10.0,
+        random_seed=42,
+    )
+
+    actual_points = _read_synthetic_point_file(
+        output_path
+    )
+
+    assert actual_points == expected.points
+
+
+def test_streaming_file_preserves_remainder_order(
+    tmp_path,
+):
+    """Remainder records should preserve existing generation order."""
+
+    from src.experiments.synthetic_data import (
+        write_synthetic_dataset_file,
+    )
+
+    expected = generate_synthetic_dataset(
+        num_records=11,
+        num_features=3,
+        num_clusters=3,
+        cluster_spread=1.0,
+        center_separation=10.0,
+        random_seed=123,
+    )
+
+    output_path = tmp_path / "remainder.csv"
+
+    write_synthetic_dataset_file(
+        output_path,
+        num_records=11,
+        num_features=3,
+        num_clusters=3,
+        cluster_spread=1.0,
+        center_separation=10.0,
+        random_seed=123,
+    )
+
+    actual_points = _read_synthetic_point_file(
+        output_path
+    )
+
+    assert len(actual_points) == 11
+    assert actual_points == expected.points
+
+
+def test_streaming_file_preserves_zero_spread(
+    tmp_path,
+):
+    """Zero-spread streaming output should match exact centers."""
+
+    from src.experiments.synthetic_data import (
+        write_synthetic_dataset_file,
+    )
+
+    expected = generate_synthetic_dataset(
+        num_records=12,
+        num_features=3,
+        num_clusters=3,
+        cluster_spread=0.0,
+        center_separation=10.0,
+        random_seed=42,
+    )
+
+    output_path = tmp_path / "zero_spread.csv"
+
+    write_synthetic_dataset_file(
+        output_path,
+        num_records=12,
+        num_features=3,
+        num_clusters=3,
+        cluster_spread=0.0,
+        center_separation=10.0,
+        random_seed=42,
+    )
+
+    actual_points = _read_synthetic_point_file(
+        output_path
+    )
+
+    assert actual_points == expected.points
+
+
+def test_streaming_file_creates_parent_directory(
+    tmp_path,
+):
+    """Streaming generation should create missing parent directories."""
+
+    from src.experiments.synthetic_data import (
+        write_synthetic_dataset_file,
+    )
+
+    output_path = (
+        tmp_path
+        / "generated"
+        / "nested"
+        / "synthetic.csv"
+    )
+
+    write_synthetic_dataset_file(
+        output_path,
+        num_records=10,
+        num_features=2,
+        num_clusters=2,
+        random_seed=42,
+    )
+
+    assert output_path.is_file()
+    assert len(
+        output_path.read_text(
+            encoding="utf-8",
+        ).splitlines()
+    ) == 10
