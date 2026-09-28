@@ -15,6 +15,7 @@ from pathlib import Path
 from src.experiments.experiment_result import ExperimentResult
 from src.experiments.experiment_runner import SyntheticExperimentConfig
 from src.experiments.repeated_runner import (
+    run_repeated_file_backed_synthetic_experiments,
     run_repeated_synthetic_experiments,
 )
 from src.experiments.result_summary import (
@@ -71,6 +72,43 @@ def run_repeated_synthetic_experiment_workflow(
         spark,
         config,
         repetitions=repetitions,
+        output_path=output_path,
+    )
+
+    summary = summarize_experiment_results(results)
+
+    return RepeatedExperimentWorkflowResult(
+        results=results,
+        summary=summary,
+    )
+
+
+def run_repeated_file_backed_synthetic_experiment_workflow(
+    spark,
+    config: SyntheticExperimentConfig,
+    *,
+    repetitions: int,
+    dataset_directory: str | Path,
+    output_path: str | Path | None = None,
+) -> RepeatedExperimentWorkflowResult:
+    """
+    Execute and summarize repeated file-backed synthetic experiments.
+
+    The repeated file-backed execution layer controls deterministic
+    experiment identifiers, seed progression, dataset-file creation,
+    and optional CSV persistence. Completed results are summarized
+    using the same statistical analysis layer as the in-memory
+    workflow.
+
+    Dataset files remain owned by the caller and are not deleted by
+    this workflow.
+    """
+
+    results = run_repeated_file_backed_synthetic_experiments(
+        spark,
+        config,
+        repetitions=repetitions,
+        dataset_directory=dataset_directory,
         output_path=output_path,
     )
 

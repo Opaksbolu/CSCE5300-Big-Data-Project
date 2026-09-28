@@ -17,6 +17,7 @@ from pathlib import Path
 from src.experiments.experiment_result import ExperimentResult
 from src.experiments.experiment_runner import (
     SyntheticExperimentConfig,
+    run_file_backed_synthetic_experiment,
     run_synthetic_experiment,
 )
 
@@ -81,6 +82,69 @@ def run_repeated_synthetic_experiments(
         result = run_synthetic_experiment(
             spark,
             run_config,
+            output_path=output_path,
+        )
+
+        results.append(result)
+
+    return tuple(results)
+
+
+def run_repeated_file_backed_synthetic_experiments(
+    spark,
+    config: SyntheticExperimentConfig,
+    *,
+    repetitions: int,
+    dataset_directory: str | Path,
+    output_path: str | Path | None = None,
+) -> tuple[ExperimentResult, ...]:
+    """
+    Execute repeated synthetic experiments through file-backed input.
+
+    Each repetition preserves the same deterministic identifier and
+    seed progression as the in-memory repeated runner. A separate
+    synthetic dataset file is generated for every repetition.
+
+    Dataset files remain owned by the caller and are not deleted after
+    execution so that they can be inspected or reused by later
+    experiment orchestration.
+    """
+
+    if repetitions <= 0:
+        raise ValueError(
+            "repetitions must be greater than zero."
+        )
+
+    dataset_root = Path(dataset_directory).expanduser()
+    dataset_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    results: list[ExperimentResult] = []
+
+    for repetition_index in range(repetitions):
+        run_number = repetition_index + 1
+
+        run_config = replace(
+            config,
+            experiment_id=(
+                f"{config.experiment_id}-run-{run_number:02d}"
+            ),
+            random_seed=(
+                config.random_seed + repetition_index
+            ),
+        )
+
+        dataset_path = (
+            dataset_root
+            / f"{run_config.experiment_id}-seed-{run_config.random_seed}.csv"
+        )
+
+        result = run_file_backed_synthetic_experiment(
+            spark,
+            run_config,
+            dataset_path=dataset_path,
             output_path=output_path,
         )
 

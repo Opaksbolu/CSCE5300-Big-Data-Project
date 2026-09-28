@@ -6,6 +6,7 @@ import pytest
 from src.experiments.experiment_runner import SyntheticExperimentConfig
 from src.experiments.experiment_workflow import (
     RepeatedExperimentWorkflowResult,
+    run_repeated_file_backed_synthetic_experiment_workflow,
     run_repeated_synthetic_experiment_workflow,
 )
 from src.experiments.result_summary import ExperimentSummary
@@ -186,3 +187,135 @@ def test_workflow_result_is_immutable(spark):
 
     with pytest.raises(FrozenInstanceError):
         workflow.summary = None
+
+def test_file_backed_workflow_returns_raw_results_and_summary(
+    spark,
+    tmp_path,
+):
+    dataset_directory = tmp_path / "datasets"
+
+    workflow = (
+        run_repeated_file_backed_synthetic_experiment_workflow(
+            spark,
+            _make_config(),
+            repetitions=2,
+            dataset_directory=dataset_directory,
+        )
+    )
+
+    assert isinstance(
+        workflow,
+        RepeatedExperimentWorkflowResult,
+    )
+    assert len(workflow.results) == 2
+    assert isinstance(
+        workflow.summary,
+        ExperimentSummary,
+    )
+    assert workflow.summary.repetitions == 2
+
+    assert tuple(
+        result.random_seed
+        for result in workflow.results
+    ) == (
+        42,
+        43,
+    )
+
+    assert len(
+        tuple(dataset_directory.glob("*.csv"))
+    ) == 2
+
+
+def test_file_backed_workflow_summary_matches_results(
+    spark,
+    tmp_path,
+):
+    workflow = (
+        run_repeated_file_backed_synthetic_experiment_workflow(
+            spark,
+            _make_config(),
+            repetitions=3,
+            dataset_directory=tmp_path / "datasets",
+        )
+    )
+
+    expected_mean_sse = sum(
+        result.sse
+        for result in workflow.results
+    ) / len(workflow.results)
+
+    expected_converged_runs = sum(
+        1
+        for result in workflow.results
+        if result.converged
+    )
+
+    assert workflow.summary.repetitions == 3
+    assert (
+        workflow.summary.converged_runs
+        == expected_converged_runs
+    )
+    assert workflow.summary.mean_sse == pytest.approx(
+        expected_mean_sse
+    )
+
+
+def test_file_backed_workflow_can_persist_raw_results(
+    spark,
+    tmp_path,
+):
+    output_path = tmp_path / "file-workflow-results.csv"
+
+    workflow = (
+        run_repeated_file_backed_synthetic_experiment_workflow(
+            spark,
+            _make_config(),
+            repetitions=2,
+            dataset_directory=tmp_path / "datasets",
+            output_path=output_path,
+        )
+    )
+
+    assert output_path.exists()
+
+    with output_path.open(
+        "r",
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert len(rows) == 2
+
+    assert tuple(
+        row["experiment_id"]
+        for row in rows
+    ) == tuple(
+        result.experiment_id
+        for result in workflow.results
+    )
+
+
+@pytest.mark.parametrize(
+    "repetitions",
+    [
+        0,
+        -1,
+    ],
+)
+def test_file_backed_workflow_rejects_nonpositive_repetitions(
+    spark,
+    tmp_path,
+    repetitions,
+):
+    with pytest.raises(
+        ValueError,
+        match="repetitions must be greater than zero",
+    ):
+        run_repeated_file_backed_synthetic_experiment_workflow(
+            spark,
+            _make_config(),
+            repetitions=repetitions,
+            dataset_directory=tmp_path / "datasets",
+        )

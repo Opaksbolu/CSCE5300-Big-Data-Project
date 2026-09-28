@@ -19,6 +19,7 @@ from pathlib import Path
 from src.experiments.experiment_runner import SyntheticExperimentConfig
 from src.experiments.experiment_workflow import (
     RepeatedExperimentWorkflowResult,
+    run_repeated_file_backed_synthetic_experiment_workflow,
     run_repeated_synthetic_experiment_workflow,
 )
 
@@ -146,6 +147,100 @@ def run_synthetic_experiment_matrix(
                 case_config,
                 repetitions=repetitions,
                 output_path=output_path,
+            )
+
+            cases.append(
+                ExperimentMatrixCaseResult(
+                    config=case_config,
+                    workflow=workflow,
+                )
+            )
+
+    return ExperimentMatrixResult(
+        cases=tuple(cases),
+    )
+
+def run_file_backed_synthetic_experiment_matrix(
+    spark,
+    base_config: SyntheticExperimentConfig,
+    *,
+    record_counts: tuple[int, ...],
+    partition_counts: tuple[int, ...],
+    repetitions: int,
+    dataset_directory: str | Path,
+    output_directory: str | Path | None = None,
+) -> ExperimentMatrixResult:
+    """
+    Execute a synthetic experiment matrix through file-backed input.
+
+    Matrix cases use the same deterministic record-count-major ordering,
+    case identifiers, configuration overrides, and statistical workflow
+    as the in-memory matrix. Each case receives its own dataset
+    directory so repeated runs can retain distinct deterministic files.
+
+    Dataset files remain owned by the caller and are not deleted after
+    execution.
+    """
+
+    _validate_positive_values(
+        record_counts,
+        name="record_counts",
+    )
+    _validate_positive_values(
+        partition_counts,
+        name="partition_counts",
+    )
+
+    if repetitions <= 0:
+        raise ValueError(
+            "repetitions must be greater than zero."
+        )
+
+    dataset_root = Path(
+        dataset_directory
+    ).expanduser()
+
+    output_root = (
+        Path(output_directory).expanduser()
+        if output_directory is not None
+        else None
+    )
+
+    cases = []
+
+    for num_records in record_counts:
+        for num_partitions in partition_counts:
+            case_id = (
+                f"{base_config.experiment_id}"
+                f"-n{num_records}"
+                f"-p{num_partitions}"
+            )
+
+            case_config = replace(
+                base_config,
+                experiment_id=case_id,
+                num_records=num_records,
+                num_partitions=num_partitions,
+            )
+
+            case_dataset_directory = (
+                dataset_root / case_id
+            )
+
+            output_path = (
+                output_root / f"{case_id}.csv"
+                if output_root is not None
+                else None
+            )
+
+            workflow = (
+                run_repeated_file_backed_synthetic_experiment_workflow(
+                    spark,
+                    case_config,
+                    repetitions=repetitions,
+                    dataset_directory=case_dataset_directory,
+                    output_path=output_path,
+                )
             )
 
             cases.append(

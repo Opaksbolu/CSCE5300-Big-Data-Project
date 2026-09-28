@@ -5,6 +5,7 @@ import pytest
 from src.experiments.experiment_result import ExperimentResult
 from src.experiments.experiment_runner import SyntheticExperimentConfig
 from src.experiments.repeated_runner import (
+    run_repeated_file_backed_synthetic_experiments,
     run_repeated_synthetic_experiments,
 )
 
@@ -168,4 +169,170 @@ def test_repeated_runner_rejects_nonpositive_repetitions(
             spark,
             _make_config(),
             repetitions=repetitions,
+        )
+
+
+def test_file_backed_repeated_runner_returns_requested_results(
+    spark,
+    tmp_path,
+):
+    dataset_directory = tmp_path / "datasets"
+
+    results = run_repeated_file_backed_synthetic_experiments(
+        spark,
+        _make_config(),
+        repetitions=3,
+        dataset_directory=dataset_directory,
+    )
+
+    assert isinstance(results, tuple)
+    assert len(results) == 3
+
+    assert tuple(
+        result.experiment_id
+        for result in results
+    ) == (
+        "repeated-test-run-01",
+        "repeated-test-run-02",
+        "repeated-test-run-03",
+    )
+
+    assert tuple(
+        result.random_seed
+        for result in results
+    ) == (
+        42,
+        43,
+        44,
+    )
+
+
+def test_file_backed_repeated_runner_creates_distinct_dataset_files(
+    spark,
+    tmp_path,
+):
+    dataset_directory = tmp_path / "datasets"
+
+    run_repeated_file_backed_synthetic_experiments(
+        spark,
+        _make_config(),
+        repetitions=3,
+        dataset_directory=dataset_directory,
+    )
+
+    dataset_paths = tuple(
+        sorted(dataset_directory.glob("*.csv"))
+    )
+
+    assert tuple(
+        path.name
+        for path in dataset_paths
+    ) == (
+        "repeated-test-run-01-seed-42.csv",
+        "repeated-test-run-02-seed-43.csv",
+        "repeated-test-run-03-seed-44.csv",
+    )
+
+    assert all(
+        path.stat().st_size > 0
+        for path in dataset_paths
+    )
+
+
+def test_file_backed_repeated_runner_persists_every_result(
+    spark,
+    tmp_path,
+):
+    output_path = tmp_path / "file-backed-results.csv"
+
+    results = run_repeated_file_backed_synthetic_experiments(
+        spark,
+        _make_config(),
+        repetitions=3,
+        dataset_directory=tmp_path / "datasets",
+        output_path=output_path,
+    )
+
+    assert output_path.exists()
+
+    with output_path.open(
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert len(rows) == 3
+
+    assert tuple(
+        row["experiment_id"]
+        for row in rows
+    ) == tuple(
+        result.experiment_id
+        for result in results
+    )
+
+    assert tuple(
+        int(row["random_seed"])
+        for row in rows
+    ) == (
+        42,
+        43,
+        44,
+    )
+
+
+def test_file_backed_repeated_runner_preserves_base_config(
+    spark,
+    tmp_path,
+):
+    config = _make_config()
+
+    results = run_repeated_file_backed_synthetic_experiments(
+        spark,
+        config,
+        repetitions=2,
+        dataset_directory=tmp_path / "datasets",
+    )
+
+    assert config.experiment_id == "repeated-test"
+    assert config.random_seed == 42
+
+    for result in results:
+        assert result.dataset_name == config.dataset_name
+        assert result.num_records == config.num_records
+        assert result.num_features == config.num_features
+        assert result.num_clusters == config.num_clusters
+        assert result.local_max_iterations == (
+            config.local_max_iterations
+        )
+        assert result.global_max_iterations == (
+            config.global_max_iterations
+        )
+        assert result.tolerance == config.tolerance
+        assert result.aggregation_restarts == (
+            config.aggregation_restarts
+        )
+
+
+@pytest.mark.parametrize(
+    "repetitions",
+    [
+        0,
+        -1,
+    ],
+)
+def test_file_backed_repeated_runner_rejects_nonpositive_repetitions(
+    spark,
+    tmp_path,
+    repetitions,
+):
+    with pytest.raises(
+        ValueError,
+        match="repetitions must be greater than zero",
+    ):
+        run_repeated_file_backed_synthetic_experiments(
+            spark,
+            _make_config(),
+            repetitions=repetitions,
+            dataset_directory=tmp_path / "datasets",
         )

@@ -6,6 +6,7 @@ import pytest
 from src.experiments.experiment_matrix import (
     ExperimentMatrixCaseResult,
     ExperimentMatrixResult,
+    run_file_backed_synthetic_experiment_matrix,
     run_synthetic_experiment_matrix,
 )
 from src.experiments.experiment_runner import SyntheticExperimentConfig
@@ -320,3 +321,230 @@ def test_matrix_case_result_is_immutable(spark):
 
     with pytest.raises(FrozenInstanceError):
         matrix.cases[0].workflow = None
+
+def test_file_backed_matrix_builds_complete_cartesian_product(
+    spark,
+    tmp_path,
+):
+    matrix = run_file_backed_synthetic_experiment_matrix(
+        spark,
+        _make_config(),
+        record_counts=(40, 60),
+        partition_counts=(2, 3),
+        repetitions=1,
+        dataset_directory=tmp_path / "datasets",
+    )
+
+    observed_cases = tuple(
+        (
+            case.config.num_records,
+            case.config.num_partitions,
+        )
+        for case in matrix.cases
+    )
+
+    assert observed_cases == (
+        (40, 2),
+        (40, 3),
+        (60, 2),
+        (60, 3),
+    )
+
+
+def test_file_backed_matrix_assigns_deterministic_case_ids(
+    spark,
+    tmp_path,
+):
+    matrix = run_file_backed_synthetic_experiment_matrix(
+        spark,
+        _make_config(),
+        record_counts=(40, 60),
+        partition_counts=(2,),
+        repetitions=1,
+        dataset_directory=tmp_path / "datasets",
+    )
+
+    assert tuple(
+        case.config.experiment_id
+        for case in matrix.cases
+    ) == (
+        "matrix-test-n40-p2",
+        "matrix-test-n60-p2",
+    )
+
+
+def test_file_backed_matrix_creates_case_dataset_directories(
+    spark,
+    tmp_path,
+):
+    dataset_root = tmp_path / "datasets"
+
+    matrix = run_file_backed_synthetic_experiment_matrix(
+        spark,
+        _make_config(),
+        record_counts=(40, 60),
+        partition_counts=(2,),
+        repetitions=2,
+        dataset_directory=dataset_root,
+    )
+
+    assert len(matrix.cases) == 2
+
+    expected_files = (
+        dataset_root
+        / "matrix-test-n40-p2"
+        / "matrix-test-n40-p2-run-01-seed-42.csv",
+        dataset_root
+        / "matrix-test-n40-p2"
+        / "matrix-test-n40-p2-run-02-seed-43.csv",
+        dataset_root
+        / "matrix-test-n60-p2"
+        / "matrix-test-n60-p2-run-01-seed-42.csv",
+        dataset_root
+        / "matrix-test-n60-p2"
+        / "matrix-test-n60-p2-run-02-seed-43.csv",
+    )
+
+    for path in expected_files:
+        assert path.exists()
+        assert path.stat().st_size > 0
+
+
+def test_file_backed_matrix_executes_requested_repetitions(
+    spark,
+    tmp_path,
+):
+    matrix = run_file_backed_synthetic_experiment_matrix(
+        spark,
+        _make_config(),
+        record_counts=(40,),
+        partition_counts=(2,),
+        repetitions=3,
+        dataset_directory=tmp_path / "datasets",
+    )
+
+    case = matrix.cases[0]
+
+    assert len(case.workflow.results) == 3
+    assert case.workflow.summary.repetitions == 3
+
+    assert tuple(
+        result.random_seed
+        for result in case.workflow.results
+    ) == (
+        42,
+        43,
+        44,
+    )
+
+
+def test_file_backed_matrix_persists_separate_csv_per_case(
+    spark,
+    tmp_path,
+):
+    output_root = tmp_path / "results"
+
+    run_file_backed_synthetic_experiment_matrix(
+        spark,
+        _make_config(),
+        record_counts=(40, 60),
+        partition_counts=(2,),
+        repetitions=2,
+        dataset_directory=tmp_path / "datasets",
+        output_directory=output_root,
+    )
+
+    expected_paths = (
+        output_root / "matrix-test-n40-p2.csv",
+        output_root / "matrix-test-n60-p2.csv",
+    )
+
+    for path in expected_paths:
+        assert path.exists()
+
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8",
+        ) as csv_file:
+            rows = list(
+                csv.DictReader(csv_file)
+            )
+
+        assert len(rows) == 2
+
+
+@pytest.mark.parametrize(
+    "record_counts",
+    [
+        (),
+        (0,),
+        (-1,),
+        (40, 0),
+    ],
+)
+def test_file_backed_matrix_rejects_invalid_record_counts(
+    spark,
+    tmp_path,
+    record_counts,
+):
+    with pytest.raises(ValueError):
+        run_file_backed_synthetic_experiment_matrix(
+            spark,
+            _make_config(),
+            record_counts=record_counts,
+            partition_counts=(2,),
+            repetitions=1,
+            dataset_directory=tmp_path / "datasets",
+        )
+
+
+@pytest.mark.parametrize(
+    "partition_counts",
+    [
+        (),
+        (0,),
+        (-1,),
+        (2, 0),
+    ],
+)
+def test_file_backed_matrix_rejects_invalid_partition_counts(
+    spark,
+    tmp_path,
+    partition_counts,
+):
+    with pytest.raises(ValueError):
+        run_file_backed_synthetic_experiment_matrix(
+            spark,
+            _make_config(),
+            record_counts=(40,),
+            partition_counts=partition_counts,
+            repetitions=1,
+            dataset_directory=tmp_path / "datasets",
+        )
+
+
+@pytest.mark.parametrize(
+    "repetitions",
+    [
+        0,
+        -1,
+    ],
+)
+def test_file_backed_matrix_rejects_nonpositive_repetitions(
+    spark,
+    tmp_path,
+    repetitions,
+):
+    with pytest.raises(
+        ValueError,
+        match="repetitions must be greater than zero",
+    ):
+        run_file_backed_synthetic_experiment_matrix(
+            spark,
+            _make_config(),
+            record_counts=(40,),
+            partition_counts=(2,),
+            repetitions=repetitions,
+            dataset_directory=tmp_path / "datasets",
+        )
