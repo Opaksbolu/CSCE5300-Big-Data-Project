@@ -48,7 +48,8 @@ class SyntheticExperimentConfig:
 
     local_max_iterations: int = 100
     global_max_iterations: int = 100
-    tolerance: float = 1e-6
+    local_tolerance: float = 1e-6
+    global_cost_tolerance: float = 1e-6
     aggregation_restarts: int = 5
 
 
@@ -83,7 +84,8 @@ def run_synthetic_experiment(
         random_seed=config.random_seed,
         local_max_iterations=config.local_max_iterations,
         global_max_iterations=config.global_max_iterations,
-        tolerance=config.tolerance,
+        local_tolerance=config.local_tolerance,
+        global_cost_tolerance=config.global_cost_tolerance,
         aggregation_restarts=config.aggregation_restarts,
     )
 
@@ -93,7 +95,8 @@ def run_synthetic_experiment(
         dataset_name=config.dataset_name,
         local_max_iterations=config.local_max_iterations,
         global_max_iterations=config.global_max_iterations,
-        tolerance=config.tolerance,
+        local_tolerance=config.local_tolerance,
+        global_cost_tolerance=config.global_cost_tolerance,
         aggregation_restarts=config.aggregation_restarts,
     )
 
@@ -151,7 +154,8 @@ def run_file_backed_synthetic_experiment(
         random_seed=config.random_seed,
         local_max_iterations=config.local_max_iterations,
         global_max_iterations=config.global_max_iterations,
-        tolerance=config.tolerance,
+        local_tolerance=config.local_tolerance,
+        global_cost_tolerance=config.global_cost_tolerance,
         aggregation_restarts=config.aggregation_restarts,
     )
 
@@ -161,7 +165,8 @@ def run_file_backed_synthetic_experiment(
         dataset_name=config.dataset_name,
         local_max_iterations=config.local_max_iterations,
         global_max_iterations=config.global_max_iterations,
-        tolerance=config.tolerance,
+        local_tolerance=config.local_tolerance,
+        global_cost_tolerance=config.global_cost_tolerance,
         aggregation_restarts=config.aggregation_restarts,
     )
 

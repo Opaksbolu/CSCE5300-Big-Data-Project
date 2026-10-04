@@ -22,7 +22,8 @@ def _make_config(
         random_seed=42,
         local_max_iterations=20,
         global_max_iterations=20,
-        tolerance=1e-6,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
     )
 
 
@@ -55,7 +56,10 @@ def test_run_synthetic_experiment_returns_standardized_result(
     assert result.global_max_iterations == (
         config.global_max_iterations
     )
-    assert result.tolerance == config.tolerance
+    assert result.local_tolerance == config.local_tolerance
+    assert result.global_cost_tolerance == (
+        config.global_cost_tolerance
+    )
 
     assert sum(result.cluster_counts) == config.num_records
     assert len(result.cluster_counts) == config.num_clusters
@@ -161,7 +165,8 @@ def test_run_synthetic_experiment_records_aggregation_restarts(
         random_seed=42,
         local_max_iterations=20,
         global_max_iterations=20,
-        tolerance=1e-6,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
         aggregation_restarts=5,
     )
 

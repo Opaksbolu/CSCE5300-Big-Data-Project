@@ -179,7 +179,8 @@ def fit_global_kmeans(
         Maximum number of distributed K-Means iterations.
 
     tolerance:
-        Maximum squared center movement allowed before convergence.
+        Maximum absolute change in consecutive iteration SSE values
+        allowed before convergence.
 
     Returns
     -------
@@ -214,6 +215,7 @@ def fit_global_kmeans(
     history: list[IterationMetrics] = []
 
     converged = False
+    previous_sse: float | None = None
 
     total_start = perf_counter()
     iteration_start = perf_counter()
@@ -242,12 +244,16 @@ def fit_global_kmeans(
             )
         )
 
-        if (
-            iteration_result.maximum_center_shift
-            <= tolerance
-        ):
-            converged = True
-            break
+        if previous_sse is not None:
+            cost_change = abs(
+                iteration_result.sse - previous_sse
+            )
+
+            if cost_change <= tolerance:
+                converged = True
+                break
+
+        previous_sse = iteration_result.sse
 
     iteration_seconds = (
         perf_counter() - iteration_start

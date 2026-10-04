@@ -34,7 +34,8 @@ class ExperimentResult:
 
     local_max_iterations: int
     global_max_iterations: int
-    tolerance: float
+    local_tolerance: float
+    global_cost_tolerance: float
     aggregation_restarts: int
 
     materialized_record_count: int
@@ -59,7 +60,8 @@ def create_experiment_result(
     dataset_name: str,
     local_max_iterations: int,
     global_max_iterations: int,
-    tolerance: float,
+    local_tolerance: float,
+    global_cost_tolerance: float,
     aggregation_restarts: int = 5,
 ) -> ExperimentResult:
     """
@@ -91,11 +93,21 @@ def create_experiment_result(
             "aggregation_restarts must be greater than zero."
         )
 
-    if not isfinite(tolerance):
-        raise ValueError("tolerance must be finite.")
+    if not isfinite(local_tolerance):
+        raise ValueError("local_tolerance must be finite.")
 
-    if tolerance < 0:
-        raise ValueError("tolerance cannot be negative.")
+    if local_tolerance < 0:
+        raise ValueError("local_tolerance cannot be negative.")
+
+    if not isfinite(global_cost_tolerance):
+        raise ValueError(
+            "global_cost_tolerance must be finite."
+        )
+
+    if global_cost_tolerance < 0:
+        raise ValueError(
+            "global_cost_tolerance cannot be negative."
+        )
 
     clustering = benchmark.clustering_result
     timing = clustering.timing
@@ -111,7 +123,8 @@ def create_experiment_result(
         random_seed=benchmark.random_seed,
         local_max_iterations=local_max_iterations,
         global_max_iterations=global_max_iterations,
-        tolerance=tolerance,
+        local_tolerance=local_tolerance,
+        global_cost_tolerance=global_cost_tolerance,
         aggregation_restarts=aggregation_restarts,
         materialized_record_count=(
             benchmark.materialized_record_count

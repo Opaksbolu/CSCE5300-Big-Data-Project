@@ -26,7 +26,8 @@ def _make_result(
         random_seed=42,
         local_max_iterations=100,
         global_max_iterations=100,
-        tolerance=1e-6,
+        local_tolerance=1e-6,
+        global_cost_tolerance=0.25,
         aggregation_restarts=5,
         materialized_record_count=num_records,
         converged=True,
@@ -51,6 +52,9 @@ def test_serialize_experiment_result_preserves_fields():
     assert row["experiment_id"] == "run-1"
     assert row["dataset_name"] == "synthetic"
     assert row["num_records"] == 1000
+    assert row["local_tolerance"] == 1e-6
+    assert row["global_cost_tolerance"] == 0.25
+    assert "tolerance" not in row
     assert row["cluster_counts"] == "200;200;200;200;200"
     assert row["sse"] == 19853.25
 
@@ -75,6 +79,9 @@ def test_append_experiment_result_creates_csv(tmp_path):
     assert len(rows) == 1
     assert rows[0]["experiment_id"] == "run-1"
     assert rows[0]["num_records"] == "1000"
+    assert rows[0]["local_tolerance"] == "1e-06"
+    assert rows[0]["global_cost_tolerance"] == "0.25"
+    assert "tolerance" not in rows[0]
     assert rows[0]["cluster_counts"] == "200;200;200;200;200"
 
 

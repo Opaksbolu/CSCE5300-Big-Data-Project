@@ -52,7 +52,8 @@ def test_parallel_kmeans_executes_complete_pipeline(spark) -> None:
         rdd,
         k=2,
         random_seed=7,
-        tolerance=1e-12,
+        local_tolerance=1e-12,
+        global_cost_tolerance=1e-12,
     )
 
     assert result.converged is True
@@ -270,7 +271,9 @@ def test_parallel_kmeans_rejects_nonpositive_global_iterations(
         )
 
 
-def test_parallel_kmeans_rejects_negative_tolerance(spark) -> None:
+def test_parallel_kmeans_rejects_negative_local_tolerance(
+    spark,
+) -> None:
     rdd = spark.sparkContext.parallelize(
         [(1.0, 1.0)],
         1,
@@ -278,12 +281,31 @@ def test_parallel_kmeans_rejects_negative_tolerance(spark) -> None:
 
     with pytest.raises(
         ValueError,
-        match="tolerance cannot be negative",
+        match="local_tolerance cannot be negative",
     ):
         fit_parallel_kmeans(
             rdd,
             k=1,
-            tolerance=-1.0,
+            local_tolerance=-1.0,
+        )
+
+
+def test_parallel_kmeans_rejects_negative_global_cost_tolerance(
+    spark,
+) -> None:
+    rdd = spark.sparkContext.parallelize(
+        [(1.0, 1.0)],
+        1,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="global_cost_tolerance cannot be negative",
+    ):
+        fit_parallel_kmeans(
+            rdd,
+            k=1,
+            global_cost_tolerance=-1.0,
         )
 
 
@@ -502,3 +524,79 @@ def test_parallel_kmeans_rejects_nonpositive_aggregation_restarts(
                 k=1,
                 aggregation_restarts=aggregation_restarts,
             )
+
+
+def test_parallel_kmeans_routes_distinct_tolerances(
+    spark,
+    monkeypatch,
+) -> None:
+    """
+    Local center-movement tolerance and global SSE-change tolerance
+    should be routed independently to their respective stages.
+    """
+
+    import src.parallel.parallel_kmeans as parallel_module
+
+    points = [
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (8.0, 8.0),
+        (9.0, 9.0),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        1,
+    )
+
+    observed: dict[str, float] = {}
+
+    original_cluster_rdd_partitions = (
+        parallel_module.cluster_rdd_partitions
+    )
+    original_aggregate_partition_results = (
+        parallel_module.aggregate_partition_results
+    )
+    original_fit_global_kmeans = (
+        parallel_module.fit_global_kmeans
+    )
+
+    def capture_partition_tolerance(*args, **kwargs):
+        observed["partition"] = kwargs["tolerance"]
+        return original_cluster_rdd_partitions(*args, **kwargs)
+
+    def capture_aggregation_tolerance(*args, **kwargs):
+        observed["aggregation"] = kwargs["tolerance"]
+        return original_aggregate_partition_results(*args, **kwargs)
+
+    def capture_global_tolerance(*args, **kwargs):
+        observed["global"] = kwargs["tolerance"]
+        return original_fit_global_kmeans(*args, **kwargs)
+
+    monkeypatch.setattr(
+        parallel_module,
+        "cluster_rdd_partitions",
+        capture_partition_tolerance,
+    )
+    monkeypatch.setattr(
+        parallel_module,
+        "aggregate_partition_results",
+        capture_aggregation_tolerance,
+    )
+    monkeypatch.setattr(
+        parallel_module,
+        "fit_global_kmeans",
+        capture_global_tolerance,
+    )
+
+    fit_parallel_kmeans(
+        rdd,
+        k=2,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
+        random_seed=42,
+    )
+
+    assert observed["partition"] == pytest.approx(1e-4)
+    assert observed["aggregation"] == pytest.approx(1e-4)
+    assert observed["global"] == pytest.approx(0.25)

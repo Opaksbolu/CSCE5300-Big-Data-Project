@@ -45,7 +45,8 @@ def test_create_experiment_result_maps_benchmark_fields():
         dataset_name="synthetic",
         local_max_iterations=100,
         global_max_iterations=100,
-        tolerance=1e-6,
+        local_tolerance=1e-6,
+        global_cost_tolerance=0.25,
     )
 
     assert isinstance(result, ExperimentResult)
@@ -63,7 +64,8 @@ def test_create_experiment_result_maps_benchmark_fields():
 
     assert result.local_max_iterations == 100
     assert result.global_max_iterations == 100
-    assert result.tolerance == 1e-6
+    assert result.local_tolerance == 1e-6
+    assert result.global_cost_tolerance == 0.25
 
     assert result.materialized_record_count == 1000
 
@@ -103,7 +105,8 @@ def test_create_experiment_result_rejects_empty_experiment_id(
             dataset_name="synthetic",
             local_max_iterations=100,
             global_max_iterations=100,
-            tolerance=1e-6,
+            local_tolerance=1e-6,
+            global_cost_tolerance=0.25,
         )
 
 
@@ -124,7 +127,8 @@ def test_create_experiment_result_rejects_empty_dataset_name(
             dataset_name=dataset_name,
             local_max_iterations=100,
             global_max_iterations=100,
-            tolerance=1e-6,
+            local_tolerance=1e-6,
+            global_cost_tolerance=0.25,
         )
 
 
@@ -145,7 +149,8 @@ def test_create_experiment_result_rejects_invalid_local_iterations(
             dataset_name="synthetic",
             local_max_iterations=local_max_iterations,
             global_max_iterations=100,
-            tolerance=1e-6,
+            local_tolerance=1e-6,
+            global_cost_tolerance=0.25,
         )
 
 
@@ -166,16 +171,17 @@ def test_create_experiment_result_rejects_invalid_global_iterations(
             dataset_name="synthetic",
             local_max_iterations=100,
             global_max_iterations=global_max_iterations,
-            tolerance=1e-6,
+            local_tolerance=1e-6,
+            global_cost_tolerance=0.25,
         )
 
 
 @pytest.mark.parametrize(
-    "tolerance",
+    "local_tolerance",
     [-1.0, float("inf"), float("-inf"), float("nan")],
 )
-def test_create_experiment_result_rejects_invalid_tolerance(
-    tolerance,
+def test_create_experiment_result_rejects_invalid_local_tolerance(
+    local_tolerance,
 ):
     with pytest.raises(ValueError):
         create_experiment_result(
@@ -184,7 +190,27 @@ def test_create_experiment_result_rejects_invalid_tolerance(
             dataset_name="synthetic",
             local_max_iterations=100,
             global_max_iterations=100,
-            tolerance=tolerance,
+            local_tolerance=local_tolerance,
+            global_cost_tolerance=0.25,
+        )
+
+
+@pytest.mark.parametrize(
+    "global_cost_tolerance",
+    [-1.0, float("inf"), float("-inf"), float("nan")],
+)
+def test_create_experiment_result_rejects_invalid_global_cost_tolerance(
+    global_cost_tolerance,
+):
+    with pytest.raises(ValueError):
+        create_experiment_result(
+            _make_benchmark(),
+            experiment_id="run-1",
+            dataset_name="synthetic",
+            local_max_iterations=100,
+            global_max_iterations=100,
+            local_tolerance=1e-6,
+            global_cost_tolerance=global_cost_tolerance,
         )
 
 
@@ -195,7 +221,8 @@ def test_experiment_result_is_immutable():
         dataset_name="synthetic",
         local_max_iterations=100,
         global_max_iterations=100,
-        tolerance=1e-6,
+        local_tolerance=1e-6,
+        global_cost_tolerance=0.25,
     )
 
     with pytest.raises(Exception):
@@ -212,7 +239,8 @@ def test_experiment_result_records_aggregation_restarts():
         dataset_name="synthetic",
         local_max_iterations=100,
         global_max_iterations=100,
-        tolerance=1e-6,
+        local_tolerance=1e-6,
+        global_cost_tolerance=0.25,
         aggregation_restarts=5,
     )
 

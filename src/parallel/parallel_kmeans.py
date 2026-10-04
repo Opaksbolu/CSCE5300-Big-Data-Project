@@ -78,7 +78,8 @@ def fit_parallel_kmeans(
     k: int,
     local_max_iterations: int = 100,
     global_max_iterations: int = 100,
-    tolerance: float = 1e-6,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     random_seed: int = 42,
     aggregation_restarts: int = 5,
 ) -> ParallelKMeansResult:
@@ -100,8 +101,14 @@ def fit_parallel_kmeans(
     global_max_iterations:
         Maximum iterations used by distributed global K-Means.
 
-    tolerance:
-        Maximum squared center movement allowed before convergence.
+    local_tolerance:
+        Maximum squared center movement allowed before convergence
+        during partition-level K-Means and candidate-center
+        aggregation.
+
+    global_cost_tolerance:
+        Maximum absolute change in consecutive global iteration SSE
+        values allowed before convergence.
 
     random_seed:
         Seed used to make local initialization reproducible.
@@ -131,9 +138,14 @@ def fit_parallel_kmeans(
             "global_max_iterations must be greater than zero."
         )
 
-    if tolerance < 0:
+    if local_tolerance < 0:
         raise ValueError(
-            "tolerance cannot be negative."
+            "local_tolerance cannot be negative."
+        )
+
+    if global_cost_tolerance < 0:
+        raise ValueError(
+            "global_cost_tolerance cannot be negative."
         )
 
     if aggregation_restarts <= 0:
@@ -155,7 +167,7 @@ def fit_parallel_kmeans(
             rdd,
             k=k,
             max_iterations=local_max_iterations,
-            tolerance=tolerance,
+            tolerance=local_tolerance,
             random_seed=random_seed,
         ).collect()
     )
@@ -175,7 +187,7 @@ def fit_parallel_kmeans(
         partition_results,
         k=k,
         max_iterations=local_max_iterations,
-        tolerance=tolerance,
+        tolerance=local_tolerance,
         random_seed=random_seed,
         num_restarts=aggregation_restarts,
     )
@@ -193,7 +205,7 @@ def fit_parallel_kmeans(
         rdd,
         initialization.global_centers,
         max_iterations=global_max_iterations,
-        tolerance=tolerance,
+        tolerance=global_cost_tolerance,
     )
 
     global_clustering_seconds = (

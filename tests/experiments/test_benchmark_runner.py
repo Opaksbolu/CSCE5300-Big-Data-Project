@@ -81,7 +81,8 @@ def test_benchmark_executes_complete_pipeline(spark) -> None:
         dataset,
         num_partitions=2,
         random_seed=42,
-        tolerance=1e-12,
+        local_tolerance=1e-12,
+        global_cost_tolerance=1e-12,
     )
 
     assert result.num_records == 40
@@ -245,7 +246,8 @@ def test_persisted_rdd_benchmark_executes_complete_pipeline(
             num_clusters=2,
             materialized_record_count=materialized_record_count,
             random_seed=42,
-            tolerance=1e-12,
+            local_tolerance=1e-12,
+        global_cost_tolerance=1e-12,
         )
 
         assert result.num_records == 4
@@ -341,7 +343,8 @@ def test_file_benchmark_executes_complete_pipeline(
         dataset,
         num_partitions=2,
         random_seed=42,
-        tolerance=1e-12,
+        local_tolerance=1e-12,
+        global_cost_tolerance=1e-12,
         aggregation_restarts=5,
     )
 
@@ -424,3 +427,66 @@ def test_file_benchmark_unpersists_after_clustering_failure(
         )
 
     assert unpersist_called is True
+
+
+def test_persisted_benchmark_routes_distinct_tolerances(
+    spark,
+    monkeypatch,
+) -> None:
+    """
+    The shared benchmark boundary should forward local center-movement
+    tolerance and global SSE-change tolerance independently.
+    """
+
+    import src.experiments.benchmark_runner as benchmark_module
+
+    points = [
+        (0.0, 0.0),
+        (0.1, 0.1),
+        (10.0, 10.0),
+        (10.1, 10.1),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+    rdd.persist()
+
+    observed: dict[str, float] = {}
+
+    original_fit_parallel_kmeans = (
+        benchmark_module.fit_parallel_kmeans
+    )
+
+    def capture_tolerances(*args, **kwargs):
+        observed["local"] = kwargs["local_tolerance"]
+        observed["global"] = kwargs["global_cost_tolerance"]
+        return original_fit_parallel_kmeans(*args, **kwargs)
+
+    monkeypatch.setattr(
+        benchmark_module,
+        "fit_parallel_kmeans",
+        capture_tolerances,
+    )
+
+    try:
+        materialized_record_count = rdd.count()
+
+        run_persisted_rdd_benchmark(
+            spark,
+            rdd,
+            num_records=4,
+            num_features=2,
+            num_clusters=2,
+            materialized_record_count=materialized_record_count,
+            random_seed=42,
+            local_tolerance=1e-4,
+            global_cost_tolerance=0.25,
+        )
+
+        assert observed["local"] == pytest.approx(1e-4)
+        assert observed["global"] == pytest.approx(0.25)
+
+    finally:
+        rdd.unpersist()

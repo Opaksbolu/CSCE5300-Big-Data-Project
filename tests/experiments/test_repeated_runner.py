@@ -23,7 +23,8 @@ def _make_config():
         random_seed=42,
         local_max_iterations=20,
         global_max_iterations=20,
-        tolerance=1e-6,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
     )
 
 
@@ -106,7 +107,12 @@ def test_repeated_runner_preserves_base_configuration(
         assert result.global_max_iterations == (
             config.global_max_iterations
         )
-        assert result.tolerance == config.tolerance
+        assert result.local_tolerance == (
+            config.local_tolerance
+        )
+        assert result.global_cost_tolerance == (
+            config.global_cost_tolerance
+        )
 
 
 def test_repeated_runner_persists_every_result(
@@ -308,7 +314,12 @@ def test_file_backed_repeated_runner_preserves_base_config(
         assert result.global_max_iterations == (
             config.global_max_iterations
         )
-        assert result.tolerance == config.tolerance
+        assert result.local_tolerance == (
+            config.local_tolerance
+        )
+        assert result.global_cost_tolerance == (
+            config.global_cost_tolerance
+        )
         assert result.aggregation_restarts == (
             config.aggregation_restarts
         )

@@ -154,6 +154,120 @@ def test_global_kmeans_stops_at_maximum_iterations(spark) -> None:
     assert len(result.history) == 1
 
 
+
+def test_global_kmeans_requires_cost_change_before_convergence(
+    spark,
+) -> None:
+    """
+    Global convergence requires two observed iteration costs.
+
+    The paper-defined stopping rule is based on the change in cost,
+    so the first iteration alone cannot establish convergence.
+    """
+
+    points = [
+        (0.0, 0.0),
+        (0.0, 2.0),
+        (2.0, 0.0),
+        (2.0, 2.0),
+        (8.0, 8.0),
+        (8.0, 10.0),
+        (10.0, 8.0),
+        (10.0, 10.0),
+    ]
+
+    rdd = spark.sparkContext.parallelize(
+        points,
+        2,
+    )
+
+    result = fit_global_kmeans(
+        rdd,
+        initial_centers=(
+            (1.0, 1.0),
+            (9.0, 9.0),
+        ),
+        max_iterations=1,
+        tolerance=1e12,
+    )
+
+    assert result.iterations == 1
+    assert result.converged is False
+
+
+def test_global_kmeans_converges_on_cost_change_not_center_shift(
+    spark,
+    monkeypatch,
+) -> None:
+    """
+    Global convergence should use consecutive SSE change rather than
+    maximum center movement.
+    """
+
+    from src.parallel import global_kmeans
+
+    class FakeIterationResult:
+        def __init__(
+            self,
+            centers,
+            sse,
+            maximum_center_shift,
+        ):
+            self.centers = centers
+            self.sse = sse
+            self.maximum_center_shift = maximum_center_shift
+            self.cluster_counts = (2, 2)
+
+    results = iter(
+        (
+            FakeIterationResult(
+                ((1.0,), (9.0,)),
+                100.0,
+                1000.0,
+            ),
+            FakeIterationResult(
+                ((2.0,), (8.0,)),
+                99.5,
+                1000.0,
+            ),
+        )
+    )
+
+    monkeypatch.setattr(
+        global_kmeans,
+        "run_global_iteration",
+        lambda rdd, centers: next(results),
+    )
+
+    monkeypatch.setattr(
+        global_kmeans,
+        "evaluate_centers",
+        lambda rdd, centers: (99.5, (2, 2)),
+    )
+
+    rdd = spark.sparkContext.parallelize(
+        [(0.0,), (1.0,), (9.0,), (10.0,)],
+        2,
+    )
+
+    result = global_kmeans.fit_global_kmeans(
+        rdd,
+        initial_centers=((0.0,), (10.0,)),
+        max_iterations=10,
+        tolerance=0.5,
+    )
+
+    assert result.converged is True
+    assert result.iterations == 2
+
+    assert result.history[0].sse == pytest.approx(100.0)
+    assert result.history[1].sse == pytest.approx(99.5)
+
+    assert (
+        result.history[1].maximum_center_shift
+        > 0.5
+    )
+
 def test_global_kmeans_reports_final_cluster_counts(spark) -> None:
     """
     Final cluster counts should account for every input record.

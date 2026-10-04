@@ -92,7 +92,8 @@ def run_persisted_rdd_benchmark(
     random_seed: int = 42,
     local_max_iterations: int = 100,
     global_max_iterations: int = 100,
-    tolerance: float = 1e-6,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     aggregation_restarts: int = 5,
 ) -> BenchmarkResult:
     """
@@ -107,7 +108,8 @@ def run_persisted_rdd_benchmark(
         k=num_clusters,
         local_max_iterations=local_max_iterations,
         global_max_iterations=global_max_iterations,
-        tolerance=tolerance,
+        local_tolerance=local_tolerance,
+        global_cost_tolerance=global_cost_tolerance,
         random_seed=random_seed,
         aggregation_restarts=aggregation_restarts,
     )
@@ -133,7 +135,8 @@ def run_parallel_kmeans_benchmark(
     random_seed: int = 42,
     local_max_iterations: int = 100,
     global_max_iterations: int = 100,
-    tolerance: float = 1e-6,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     aggregation_restarts: int = 5,
 ) -> BenchmarkResult:
     """
@@ -163,7 +166,8 @@ def run_parallel_kmeans_benchmark(
             random_seed=random_seed,
             local_max_iterations=local_max_iterations,
             global_max_iterations=global_max_iterations,
-            tolerance=tolerance,
+            local_tolerance=local_tolerance,
+            global_cost_tolerance=global_cost_tolerance,
             aggregation_restarts=aggregation_restarts,
         )
 
@@ -179,7 +183,8 @@ def run_file_parallel_kmeans_benchmark(
     random_seed: int = 42,
     local_max_iterations: int = 100,
     global_max_iterations: int = 100,
-    tolerance: float = 1e-6,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     aggregation_restarts: int = 5,
 ) -> BenchmarkResult:
     """
@@ -209,7 +214,8 @@ def run_file_parallel_kmeans_benchmark(
             random_seed=random_seed,
             local_max_iterations=local_max_iterations,
             global_max_iterations=global_max_iterations,
-            tolerance=tolerance,
+            local_tolerance=local_tolerance,
+            global_cost_tolerance=global_cost_tolerance,
             aggregation_restarts=aggregation_restarts,
         )
 

@@ -28,7 +28,8 @@ def _make_config():
         random_seed=42,
         local_max_iterations=20,
         global_max_iterations=20,
-        tolerance=1e-6,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
     )
 
 
@@ -141,7 +142,12 @@ def test_matrix_preserves_base_configuration(spark):
         case_config.global_max_iterations
         == base_config.global_max_iterations
     )
-    assert case_config.tolerance == base_config.tolerance
+    assert case_config.local_tolerance == (
+        base_config.local_tolerance
+    )
+    assert case_config.global_cost_tolerance == (
+        base_config.global_cost_tolerance
+    )
 
 
 def test_matrix_executes_requested_repetitions_for_every_case(spark):
