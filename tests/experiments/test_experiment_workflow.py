@@ -25,7 +25,8 @@ def _make_config():
         random_seed=42,
         local_max_iterations=20,
         global_max_iterations=20,
-        tolerance=1e-6,
+        local_tolerance=1e-4,
+        global_cost_tolerance=0.25,
     )
 
 

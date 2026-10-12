@@ -9,6 +9,7 @@ processes so that Spark application contexts remain isolated.
 from __future__ import annotations
 
 import argparse
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -180,6 +181,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--local-tolerance",
+        type=float,
+        default=1e-6,
+        help=(
+            "Local and aggregation center-movement tolerance. "
+            "Default: 1e-6"
+        ),
+    )
+
+    parser.add_argument(
+        "--global-cost-tolerance",
+        type=float,
+        default=1e-6,
+        help=(
+            "Absolute change in consecutive global SSE values "
+            "required for convergence. Default: 1e-6"
+        ),
+    )
+
+    parser.add_argument(
         "--input-mode",
         choices=("memory", "file"),
         default="memory",
@@ -233,6 +254,23 @@ def main() -> int:
         raise SystemExit(
             "--aggregation-restarts must be greater than zero."
         )
+
+    if (
+        not math.isfinite(args.local_tolerance)
+        or args.local_tolerance < 0
+    ):
+        raise SystemExit(
+            "--local-tolerance must be finite and nonnegative."
+        )
+
+    if (
+        not math.isfinite(args.global_cost_tolerance)
+        or args.global_cost_tolerance < 0
+    ):
+        raise SystemExit(
+            "--global-cost-tolerance must be finite and nonnegative."
+        )
+
     master_name = master_output_name(
         args.master
     )
@@ -259,7 +297,8 @@ def main() -> int:
         random_seed=42,
         local_max_iterations=100,
         global_max_iterations=100,
-        tolerance=1e-6,
+        local_tolerance=args.local_tolerance,
+        global_cost_tolerance=args.global_cost_tolerance,
         aggregation_restarts=args.aggregation_restarts,
     )
 

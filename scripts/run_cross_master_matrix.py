@@ -10,6 +10,7 @@ command to coordinate local[1], local[2], local[4], or other masters.
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -77,6 +78,8 @@ def build_child_command(
     repetitions: int,
     warmup_runs: int,
     aggregation_restarts: int,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     input_mode: str = "memory",
     dataset_directory: Path = Path("data/generated/cross-master"),
     output_directory: Path,
@@ -106,6 +109,15 @@ def build_child_command(
         raise ValueError(
             "aggregation_restarts must be greater than zero."
         )
+    for name, value in (
+        ("local_tolerance", local_tolerance),
+        ("global_cost_tolerance", global_cost_tolerance),
+    ):
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(
+                f"{name} must be finite and nonnegative."
+            )
+
     if input_mode not in {"memory", "file"}:
         raise ValueError(
             "input_mode must be 'memory' or 'file'."
@@ -131,6 +143,10 @@ def build_child_command(
         str(warmup_runs),
         "--aggregation-restarts",
         str(aggregation_restarts),
+        "--local-tolerance",
+        str(local_tolerance),
+        "--global-cost-tolerance",
+        str(global_cost_tolerance),
         "--input-mode",
         input_mode,
         "--dataset-directory",
@@ -150,6 +166,8 @@ def run_cross_master_processes(
     repetitions: int,
     warmup_runs: int,
     aggregation_restarts: int,
+    local_tolerance: float = 1e-6,
+    global_cost_tolerance: float = 1e-6,
     input_mode: str = "memory",
     dataset_directory: Path = Path("data/generated/cross-master"),
     output_directory: Path,
@@ -172,6 +190,8 @@ def run_cross_master_processes(
             repetitions=repetitions,
             warmup_runs=warmup_runs,
             aggregation_restarts=aggregation_restarts,
+            local_tolerance=local_tolerance,
+            global_cost_tolerance=global_cost_tolerance,
             input_mode=input_mode,
             dataset_directory=dataset_directory,
             output_directory=output_directory,
@@ -260,6 +280,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--local-tolerance",
+        type=float,
+        default=1e-6,
+        help="Local center-shift tolerance. Default: 1e-6",
+    )
+
+    parser.add_argument(
+        "--global-cost-tolerance",
+        type=float,
+        default=1e-6,
+        help="Global SSE-change tolerance. Default: 1e-6",
+    )
+
+    parser.add_argument(
         "--input-mode",
         choices=("memory", "file"),
         default="memory",
@@ -313,6 +347,15 @@ def main() -> int:
         raise SystemExit(
             "--aggregation-restarts must be greater than zero."
         )
+    for name, value in (
+        ("--local-tolerance", args.local_tolerance),
+        ("--global-cost-tolerance", args.global_cost_tolerance),
+    ):
+        if not math.isfinite(value) or value < 0:
+            raise SystemExit(
+                f"{name} must be finite and nonnegative."
+            )
+
     print(
         "Cross-master experiment controller started."
     )
@@ -335,6 +378,10 @@ def main() -> int:
         "Aggregation restarts: "
         f"{args.aggregation_restarts}"
     )
+    print(f"Local tolerance: {args.local_tolerance}")
+    print(
+        f"Global cost tolerance: {args.global_cost_tolerance}"
+    )
     print(
         f"Input mode: {args.input_mode}"
     )
@@ -352,6 +399,8 @@ def main() -> int:
         repetitions=args.repetitions,
         warmup_runs=args.warmup_runs,
         aggregation_restarts=args.aggregation_restarts,
+        local_tolerance=args.local_tolerance,
+        global_cost_tolerance=args.global_cost_tolerance,
         input_mode=args.input_mode,
         dataset_directory=args.dataset_directory,
         output_directory=args.output_directory,

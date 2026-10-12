@@ -105,14 +105,16 @@ def main() -> None:
         print(f"RDD partitions:      {rdd.getNumPartitions()}")
         print(f"Partition sizes:     {partition_sizes}")
         print(f"Random seed:         {random_seed}")
-        print(f"Tolerance:           {tolerance}")
+        print(f"Local tolerance:     {tolerance}")
+        print(f"Global cost tol.:    {tolerance}")
 
         result = fit_parallel_kmeans(
             rdd,
             k=k,
             local_max_iterations=100,
             global_max_iterations=100,
-            tolerance=tolerance,
+            local_tolerance=tolerance,
+            global_cost_tolerance=tolerance,
             random_seed=random_seed,
         )
 

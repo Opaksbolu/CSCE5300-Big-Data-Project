@@ -120,6 +120,10 @@ def test_build_child_command_uses_module_execution():
         "1",
         "--aggregation-restarts",
         "5",
+        "--local-tolerance",
+        "1e-06",
+        "--global-cost-tolerance",
+        "1e-06",
         "--input-mode",
         "memory",
         "--dataset-directory",
@@ -129,6 +133,46 @@ def test_build_child_command_uses_module_execution():
         "--log-level",
         "ERROR",
     ]
+
+
+
+def test_parser_accepts_custom_tolerances():
+    args = build_parser().parse_args([
+        "--local-tolerance", "0.0001",
+        "--global-cost-tolerance", "0.25",
+    ])
+
+    assert args.local_tolerance == 0.0001
+    assert args.global_cost_tolerance == 0.25
+
+
+def test_parser_uses_default_tolerances():
+    args = build_parser().parse_args([])
+
+    assert args.local_tolerance == 1e-6
+    assert args.global_cost_tolerance == 1e-6
+
+
+def test_build_child_command_forwards_custom_tolerances():
+    command = build_child_command(
+        python_executable=sys.executable,
+        master="local[2]",
+        record_counts=(1000,),
+        partition_counts=(4,),
+        repetitions=1,
+        warmup_runs=1,
+        aggregation_restarts=5,
+        local_tolerance=0.0001,
+        global_cost_tolerance=0.25,
+        output_directory=Path("results/raw/test"),
+        log_level="WARN",
+    )
+
+    local_index = command.index("--local-tolerance")
+    global_index = command.index("--global-cost-tolerance")
+
+    assert float(command[local_index + 1]) == 0.0001
+    assert float(command[global_index + 1]) == 0.25
 
 
 @pytest.mark.parametrize(

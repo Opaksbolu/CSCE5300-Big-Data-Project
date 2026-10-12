@@ -110,7 +110,8 @@ def run_trial(
         result = fit_parallel_kmeans(
             rdd,
             k=k,
-            tolerance=tolerance,
+            local_tolerance=tolerance,
+            global_cost_tolerance=tolerance,
             random_seed=random_seed,
         )
         wall_clock_seconds = time.perf_counter() - wall_start

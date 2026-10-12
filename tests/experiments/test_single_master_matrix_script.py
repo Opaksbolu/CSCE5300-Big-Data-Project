@@ -136,6 +136,176 @@ def test_parser_uses_expected_benchmark_defaults():
     assert args.warmup_runs == 1
     assert args.aggregation_restarts == 5
 
+
+def test_parser_accepts_custom_tolerances():
+    args = build_parser().parse_args(
+        [
+            "--master",
+            "local[2]",
+            "--local-tolerance",
+            "0.0001",
+            "--global-cost-tolerance",
+            "0.25",
+        ]
+    )
+
+    assert args.local_tolerance == pytest.approx(1e-4)
+    assert args.global_cost_tolerance == pytest.approx(0.25)
+
+
+def test_parser_uses_default_tolerances():
+    args = build_parser().parse_args(
+        [
+            "--master",
+            "local[2]",
+        ]
+    )
+
+    assert args.local_tolerance == pytest.approx(1e-6)
+    assert args.global_cost_tolerance == pytest.approx(1e-6)
+
+
+@pytest.mark.parametrize(
+    ("argument", "value"),
+    [
+        ("--local-tolerance", "-0.1"),
+        ("--local-tolerance", "nan"),
+        ("--local-tolerance", "inf"),
+        ("--global-cost-tolerance", "-0.1"),
+        ("--global-cost-tolerance", "nan"),
+        ("--global-cost-tolerance", "inf"),
+    ],
+)
+def test_main_rejects_invalid_tolerances(
+    monkeypatch,
+    argument,
+    value,
+):
+    import scripts.run_single_master_matrix as module
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_single_master_matrix",
+            "--master",
+            "local[2]",
+            argument,
+            value,
+        ],
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match="must be finite and nonnegative",
+    ):
+        module.main()
+
+
+
+def test_main_propagates_custom_tolerances(
+    monkeypatch,
+    tmp_path,
+):
+    import scripts.run_single_master_matrix as module
+
+    captured = []
+
+    class FakeSparkContext:
+        master = "local[2]"
+
+    class FakeSpark:
+        sparkContext = FakeSparkContext()
+
+    class FakeMatrix:
+        cases = ()
+
+    fake_spark = FakeSpark()
+
+    monkeypatch.setattr(
+        module,
+        "create_spark_session",
+        lambda **kwargs: fake_spark,
+    )
+
+    monkeypatch.setattr(
+        module,
+        "stop_spark_session",
+        lambda spark: None,
+    )
+
+    def fake_warmup(
+        spark,
+        config,
+        *,
+        warmup_runs,
+        input_mode,
+        dataset_directory,
+    ):
+        captured.append(
+            (
+                "warmup",
+                config.local_tolerance,
+                config.global_cost_tolerance,
+            )
+        )
+
+    def fake_matrix(
+        spark,
+        base_config,
+        *,
+        record_counts,
+        partition_counts,
+        repetitions,
+        output_directory,
+    ):
+        captured.append(
+            (
+                "matrix",
+                base_config.local_tolerance,
+                base_config.global_cost_tolerance,
+            )
+        )
+        return FakeMatrix()
+
+    monkeypatch.setattr(
+        module,
+        "run_warmup_experiments",
+        fake_warmup,
+    )
+
+    monkeypatch.setattr(
+        module,
+        "run_synthetic_experiment_matrix",
+        fake_matrix,
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_single_master_matrix",
+            "--master",
+            "local[2]",
+            "--local-tolerance",
+            "0.0001",
+            "--global-cost-tolerance",
+            "0.25",
+            "--output-directory",
+            str(tmp_path),
+        ],
+    )
+
+    assert module.main() == 0
+
+    assert len(captured) == 2
+
+    assert captured[0][0] == "warmup"
+    assert captured[1][0] == "matrix"
+
+    for _, local_tolerance, global_cost_tolerance in captured:
+        assert local_tolerance == pytest.approx(1e-4)
+        assert global_cost_tolerance == pytest.approx(0.25)
+
+
 def test_run_warmups_executes_requested_number_without_output(
     monkeypatch,
 ):
