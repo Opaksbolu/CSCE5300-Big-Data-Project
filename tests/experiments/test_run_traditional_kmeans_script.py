@@ -341,3 +341,294 @@ def test_negative_warmup_count_is_rejected(
 
     with pytest.raises(SystemExit):
         run_traditional_kmeans.main()
+
+def test_multiple_initializations_select_lowest_sse():
+    """More initializations must retain the lowest observed SSE."""
+
+    results = {}
+
+    for count in (1, 5, 10):
+        results[count] = run_traditional_kmeans.run_baseline(
+            num_records=100,
+            num_features=3,
+            num_clusters=3,
+            random_seed=42,
+            num_initializations=count,
+        )
+
+    assert results[5]["sse"] <= results[1]["sse"] + 1e-9
+    assert results[10]["sse"] <= results[5]["sse"] + 1e-9
+
+
+def test_multiple_initializations_are_reproducible():
+    """Repeated experiments must select identical clustering results."""
+
+    first = run_traditional_kmeans.run_baseline(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+        num_initializations=5,
+    )
+
+    second = run_traditional_kmeans.run_baseline(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+        num_initializations=5,
+    )
+
+    assert first["sse"] == pytest.approx(second["sse"])
+
+    assert (
+        first["best_initialization_seed"]
+        == second["best_initialization_seed"]
+    )
+
+    assert first["cluster_counts"] == second["cluster_counts"]
+    assert first["iterations"] == second["iterations"]
+    assert first["converged"] == second["converged"]
+
+
+@pytest.mark.parametrize("count", [0, -1, -5])
+def test_rejects_nonpositive_initialization_counts(count):
+    """Initialization counts must be positive integers."""
+
+    with pytest.raises(
+        ValueError,
+        match="num_initializations must be greater than zero",
+    ):
+        run_traditional_kmeans.run_baseline(
+            num_records=100,
+            num_features=3,
+            num_clusters=3,
+            random_seed=42,
+            num_initializations=count,
+        )
+
+
+def test_single_initialization_preserves_original_behavior():
+    """Explicitly requesting one initialization matches the default."""
+
+    original = run_traditional_kmeans.run_baseline(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+    )
+
+    explicit = run_traditional_kmeans.run_baseline(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+        num_initializations=1,
+    )
+
+    assert original["sse"] == pytest.approx(explicit["sse"])
+    assert original["cluster_counts"] == explicit["cluster_counts"]
+    assert original["iterations"] == explicit["iterations"]
+
+    assert explicit["num_initializations"] == 1
+    assert explicit["best_initialization_seed"] == 42
+
+
+def test_multiple_initializations_assign_all_records():
+    """The selected clustering result must assign every data point."""
+
+    result = run_traditional_kmeans.run_baseline(
+        num_records=103,
+        num_features=3,
+        num_clusters=4,
+        random_seed=42,
+        num_initializations=5,
+    )
+
+    counts = [
+        int(value)
+        for value in result["cluster_counts"].split(";")
+    ]
+
+    assert len(counts) == 4
+    assert sum(counts) == 103
+
+    assert result["num_initializations"] == 5
+
+    assert (
+        42 <= result["best_initialization_seed"] <= 46
+    )
+
+
+def test_multiple_initializations_match_independent_sse_minimum():
+    """The selected SSE must equal the best independent fit."""
+
+    from src.experiments.synthetic_data import (
+        generate_synthetic_dataset,
+    )
+    from src.parallel.local_kmeans import fit_local_kmeans
+
+    dataset = generate_synthetic_dataset(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+    )
+
+    individual_results = [
+        fit_local_kmeans(
+            dataset.points,
+            k=3,
+            random_seed=seed,
+        )
+        for seed in range(42, 47)
+    ]
+
+    expected_sse = min(
+        result.sse
+        for result in individual_results
+    )
+
+    actual = run_traditional_kmeans.run_baseline(
+        num_records=100,
+        num_features=3,
+        num_clusters=3,
+        random_seed=42,
+        num_initializations=5,
+    )
+
+    assert actual["sse"] == pytest.approx(expected_sse)
+
+def test_cli_multiple_initializations_written_to_csv(
+    tmp_path,
+    monkeypatch,
+):
+    """CLI must preserve the requested initialization count in CSV."""
+
+    output = tmp_path / "multiple_initializations.csv"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_traditional_kmeans.py",
+            "--record-counts", "100",
+            "--num-features", "3",
+            "--num-clusters", "3",
+            "--repetitions", "2",
+            "--warmup-runs", "0",
+            "--num-initializations", "5",
+            "--random-seed", "42",
+            "--output", str(output),
+        ],
+    )
+
+    run_traditional_kmeans.main()
+
+    with output.open(newline="") as file:
+        rows = list(csv.DictReader(file))
+
+    assert len(rows) == 2
+
+    assert [int(row["num_initializations"]) for row in rows] == [
+        5, 5
+    ]
+
+    assert [int(row["random_seed"]) for row in rows] == [
+        42, 43
+    ]
+
+    for row in rows:
+        dataset_seed = int(row["random_seed"])
+        best_seed = int(row["best_initialization_seed"])
+
+        assert dataset_seed <= best_seed < dataset_seed + 5
+        assert float(row["sse"]) >= 0
+        assert sum(
+            int(count)
+            for count in row["cluster_counts"].split(";")
+        ) == int(row["num_records"])
+
+
+@pytest.mark.parametrize(
+    "initialization_count",
+    ["0", "-1", "-5"],
+)
+def test_cli_rejects_invalid_initialization_counts(
+    initialization_count,
+    tmp_path,
+    monkeypatch,
+):
+    """CLI must reject nonpositive initialization counts."""
+
+    output = tmp_path / "invalid_initializations.csv"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_traditional_kmeans.py",
+            "--num-initializations",
+            initialization_count,
+            "--output",
+            str(output),
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        run_traditional_kmeans.main()
+
+    assert not output.exists()
+
+
+def test_cli_warmups_use_requested_initializations(
+    tmp_path,
+    monkeypatch,
+):
+    """Warm-up and measured runs must use the same restart count."""
+
+    output = tmp_path / "warmup_initializations.csv"
+
+    observed_initializations = []
+
+    original_run_baseline = run_traditional_kmeans.run_baseline
+
+    def recording_run_baseline(**kwargs):
+        observed_initializations.append(
+            kwargs["num_initializations"]
+        )
+        return original_run_baseline(**kwargs)
+
+    monkeypatch.setattr(
+        run_traditional_kmeans,
+        "run_baseline",
+        recording_run_baseline,
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_traditional_kmeans.py",
+            "--record-counts", "30",
+            "--num-features", "2",
+            "--num-clusters", "2",
+            "--repetitions", "2",
+            "--warmup-runs", "2",
+            "--num-initializations", "5",
+            "--output", str(output),
+        ],
+    )
+
+    run_traditional_kmeans.main()
+
+    assert observed_initializations == [5, 5, 5, 5]
+
+    with output.open(newline="") as file:
+        rows = list(csv.DictReader(file))
+
+    assert len(rows) == 2
+    assert all(
+        int(row["num_initializations"]) == 5
+        for row in rows
+    )

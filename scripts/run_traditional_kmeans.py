@@ -24,8 +24,21 @@ def run_baseline(
     random_seed: int = 42,
     max_iterations: int = 100,
     tolerance: float = 1e-6,
+    num_initializations: int = 1,
 ) -> dict:
-    """Execute one conventional K-Means experiment."""
+    """
+    Execute conventional K-Means with configurable initializations.
+
+    The dataset is generated once. Each initialization uses the same
+    data but a different deterministic random seed.
+
+    The clustering result with the lowest SSE is retained.
+    """
+
+    if num_initializations <= 0:
+        raise ValueError(
+            "num_initializations must be greater than zero."
+        )
 
     dataset = generate_synthetic_dataset(
         num_records=num_records,
@@ -36,18 +49,28 @@ def run_baseline(
 
     start = perf_counter()
 
-    result = fit_local_kmeans(
-        dataset.points,
-        k=num_clusters,
-        max_iterations=max_iterations,
-        tolerance=tolerance,
-        random_seed=random_seed,
-    )
+    best_result = None
+    best_seed = None
+
+    for initialization_index in range(num_initializations):
+        initialization_seed = random_seed + initialization_index
+
+        result = fit_local_kmeans(
+            dataset.points,
+            k=num_clusters,
+            max_iterations=max_iterations,
+            tolerance=tolerance,
+            random_seed=initialization_seed,
+        )
+
+        if best_result is None or result.sse < best_result.sse:
+            best_result = result
+            best_seed = initialization_seed
 
     runtime = perf_counter() - start
 
     cluster_counts = tuple(
-        result.assignments.count(index)
+        best_result.assignments.count(index)
         for index in range(num_clusters)
     )
 
@@ -59,11 +82,13 @@ def run_baseline(
         "random_seed": random_seed,
         "max_iterations": max_iterations,
         "tolerance": tolerance,
-        "converged": result.converged,
-        "iterations": result.iterations,
-        "sse": result.sse,
+        "converged": best_result.converged,
+        "iterations": best_result.iterations,
+        "sse": best_result.sse,
         "cluster_counts": ";".join(map(str, cluster_counts)),
         "total_runtime_seconds": runtime,
+        "num_initializations": num_initializations,
+        "best_initialization_seed": best_seed,
     }
 
 
@@ -103,6 +128,13 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--num-initializations",
+        type=int,
+        default=1,
+        help="Number of deterministic K-Means initializations.",
+    )
+
+    parser.add_argument(
         "--random-seed",
         type=int,
         default=42,
@@ -120,6 +152,9 @@ def main() -> None:
 
     if args.warmup_runs < 0:
         parser.error("--warmup-runs cannot be negative")
+
+    if args.num_initializations <= 0:
+        parser.error("--num-initializations must be greater than zero")
 
     if args.num_features <= 0:
         parser.error("--num-features must be positive")
@@ -159,6 +194,7 @@ def main() -> None:
                 num_features=args.num_features,
                 num_clusters=args.num_clusters,
                 random_seed=args.random_seed,
+                num_initializations=args.num_initializations,
             )
 
             print(
@@ -174,6 +210,7 @@ def main() -> None:
                 num_features=args.num_features,
                 num_clusters=args.num_clusters,
                 random_seed=seed,
+                num_initializations=args.num_initializations,
             )
 
             row["repetition"] = repetition + 1
