@@ -38,6 +38,9 @@ logs/
 # Large/raw datasets
 data/raw/
 data/processed/
+*.parquet
+*.csv.gz
+!data/samples/*
 
 # Generated experiment output
 results/raw/**/*.csv
