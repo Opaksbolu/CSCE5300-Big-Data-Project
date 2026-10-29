@@ -260,7 +260,7 @@ RDD lifecycle ownership remains in the experiment layer rather than inside the c
 
 Separating initialization, iterative global clustering, final evaluation, and RDD materialization provides clearer experimental timing boundaries.
 
-The controlled benchmark foundation is now implemented, but report-grade runtime claims will require repeated benchmark trials under consistent configurations.
+The controlled benchmark foundation and repeated scalability experiments have been completed. Six dataset-size/master configurations were measured with three seeds each; the results and their limitations are summarized in Sections 12 and 16.
 
 ---
 
@@ -495,104 +495,73 @@ This demonstration is intended for functional validation and should **not** be t
 
 ## 11. Experimental Methodology
 
-The experimental framework will evaluate the implementation using controlled configurations.
+The completed controlled scalability study evaluated the custom PySpark Parallel K-Means implementation on deterministic synthetic data. The primary configurations were:
 
-Planned independent variables include:
+| Parameter | Evaluated setting |
+|---|---|
+| Dataset sizes | 10,000 and 50,000 records |
+| Numerical features | 20 |
+| Clusters (`k`) | 5 |
+| RDD partitions | 4 |
+| Spark masters | `local[1]`, `local[2]`, `local[4]` |
+| Measured seeds | 42, 43, 44 |
+| Measured repetitions | 3 per configuration; 18 total |
+| Global convergence tolerance | `1e-6` (SSE cost-change criterion) |
+| Global iteration limit | 100 |
 
-- dataset size,
-- feature count,
-- number of clusters (`k`),
-- Spark master configuration,
-- RDD partition count,
-- random seed,
-- maximum iterations,
-- convergence tolerance,
-- and trial number.
-
-Measurements will include:
-
-- partition clustering time,
-- center aggregation time,
-- initialization time,
-- iterative global clustering time,
-- final evaluation time,
-- total runtime,
-- iterations completed,
-- convergence status,
-- SSE,
-- and cluster counts.
-
-Initial local scalability experiments are planned for:
-
-```text
-local[1]
-local[2]
-local[4]
-```
-
-Dataset sizes will increase progressively so that correctness, memory behavior, and runtime characteristics can be validated at each scale before larger experiments are attempted.
-
-Potential synthetic experiment sizes include:
-
-```text
-1,000 records
-10,000 records
-50,000 records
-100,000 records
-500,000 records
-1,000,000 records
-```
-
-Larger experiments will only be attempted when the development machine can execute them reliably.
+The study varied **dataset size** and **local Spark parallelism** while holding the principal feature, cluster, and partition settings fixed. The local master settings represent different levels of parallel execution on one physical machine; they are not separate cluster nodes.
 
 ### Controlled Benchmark Execution
 
-The benchmark runner records core experimental metadata including:
+The benchmark framework records configuration metadata, materialized record counts, clustering outcomes, convergence information, SSE, cluster counts, and runtime components. It persists and materializes the input RDD before the measured clustering pipeline and unpersists it after execution, including tested failure paths.
 
-- number of records,
-- number of features,
-- number of clusters,
-- number of Spark partitions,
-- Spark master configuration,
-- random seed,
-- materialized record count,
-- clustering results,
-- convergence information,
-- and runtime information.
+Recorded timing components include partition clustering, candidate-center aggregation, initialization, iterative global clustering, final-center evaluation, and total pipeline runtime.
 
-The input RDD is persisted and materialized before clustering begins.
+### Repeated Trials and Comparisons
 
-This establishes a consistent experimental boundary between dataset/RDD preparation and the measured clustering operations.
+Three measured seeds (42, 43, and 44) were used for each of the six dataset-size/master combinations. Mean runtime and speedup were calculated relative to `local[1]` at the same dataset size. All 18 measured runs converged.
 
-### Repeated Trials
+A conventional K-Means baseline was also evaluated. Because its initialization differs from the parallel approach, differences in clustering quality should be interpreted cautiously rather than as a perfectly controlled algorithm-only comparison.
 
-Report-grade performance comparisons will use repeated trials rather than relying on a single execution.
+### Scope of Additional Work
 
-Repeated experiments will allow runtime results to be summarized using appropriate descriptive statistics such as mean and standard deviation.
-
-The same dataset configuration, cluster count, convergence settings, and Spark configuration will be maintained when comparing execution modes.
+Partition-count sensitivity, KDD Cup 99, clustering purity, memory profiling, and direct numerical comparisons with the reference paper are **not claimed as completed** without verified supporting results. Larger synthetic datasets and additional feature or cluster settings remain possible extensions, not part of the principal verified scalability study.
 
 ---
 
 ## 12. Experimental Results
 
-Generated raw experiment data will be stored under:
+### Controlled Synthetic Scalability Results
 
-```text
-results/raw/
-```
+The completed experiments used the configurations described in Section 11. Each mean is based on three measured trials, and all 18 measured runs converged.
 
-Generated figures will be stored under:
+| Records | Spark master | Mean runtime (s) | Speedup vs. `local[1]` |
+|---:|---|---:|---:|
+| 10,000 | `local[1]` | 8.033 | 1.000× |
+| 10,000 | `local[2]` | 5.642 | 1.424× |
+| 10,000 | `local[4]` | 4.090 | 1.964× |
+| 50,000 | `local[1]` | 116.765 | 1.000× |
+| 50,000 | `local[2]` | 79.243 | 1.474× |
+| 50,000 | `local[4]` | 39.918 | 2.925× |
 
-```text
-results/figures/
-```
+Mean SSE was consistent across local worker settings for each dataset size: approximately **200,921.733** for 10,000 records and **1,000,547.881** for 50,000 records. These are local parallel scalability measurements on one physical computer, **not** multi-node cluster results.
 
-Raw generated CSV and JSON experiment files are excluded from Git by default to prevent benchmark output from unnecessarily increasing repository size.
+The automated regression suite reported **374 passed, 1 warning**; the warning did not fail the tests.
 
-Final report-ready results and figures may be selectively preserved when the experimental phase is complete.
+### Results and Submission Artifacts
 
-No report-grade performance conclusions should be drawn from small development demonstrations or instrumentation sanity checks.
+- [Final report (PDF)](docs/final_report/parallel_kmeans_final_report_tables_numbered.pdf)
+- [Final report (Word)](docs/final_report/parallel_kmeans_final_report_tables_numbered.docx)
+- [Final report source (Markdown)](docs/final_report/parallel_kmeans_final_report.md)
+- [Experimental methodology](docs/methodology/experimental-methodology.md)
+- [Group 7 presentation (PowerPoint)](docs/presentation/group7/Group7_Parallel_KMeans_Professional_Final.pptx)
+- [Speaker notes](docs/presentation/group7/Group7_Speaker_Notes.pdf)
+- [Live demonstration guide](docs/presentation/group7/Group7_Live_Demo_Guide.pdf)
+- [Submission checklist](docs/presentation/group7/Group7_Submission_Checklist.pdf)
+
+Raw generated experiment files are normally stored under `results/raw/`, and generated figures under `results/figures/`. Some generated outputs are excluded from Git to keep the repository manageable; the linked report contains the curated results and discussion. Do not infer that every raw run or figure is tracked in Git.
+
+Small development demonstrations are not substitutes for the repeated controlled results above. Interpretation is subject to the limitations in Section 16.
 
 ---
 
@@ -794,7 +763,7 @@ The components are designed so that algorithm, data, systems, and evaluation wor
 
 This repository was created for the **CSCE 5300 – Introduction to Big Data and Data Science** course project.
 
-The project focuses on independently reproducing, testing, and experimentally evaluating ideas from the selected research paper rather than presenting the original authors' implementation as our own.
+The project independently implements and evaluates a Spark-based interpretation of ideas from the selected research paper. It does **not** claim to reproduce the original authors' source code, hardware environment, or every experimental configuration.
 
 The selected paper is:
 
@@ -802,8 +771,6 @@ The selected paper is:
 > **“Big Data Clustering Method Based on Parallel K-Means,”**
 > 2024 IEEE 4th International Conference on Power, Electronics and Computer Applications (ICPECA), 2024.
 
-The final project will compare independently generated experimental results with results reported by the reference paper.
+The report distinguishes results generated by this implementation from results reported in the paper. Direct numerical comparability remains limited by differences in hardware, datasets, implementation, and experimental scope; an exact numerical replication is not claimed.
 
-Reported results from the paper and results produced by this repository will be clearly distinguished.
-
-All final experimental claims, figures, numerical comparisons, and conclusions about this implementation will be based on reproducible executions of the code contained in this project.
+Experimental conclusions are based on the controlled runs described in this README and the final report. The course's different-programming-language requirement still requires confirmation with the instructor before submission.
