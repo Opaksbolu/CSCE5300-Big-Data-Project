@@ -654,54 +654,62 @@ This staged testing strategy reduces the risk of introducing regressions while t
 
 ## 15. Current Project Status
 
-Completed milestones:
+The core Parallel K-Means implementation, controlled scalability experiments, and main report and presentation deliverables have been prepared.
+
+### Completed Development Milestones
 
 ```text
-[Completed] Spark development environment
-[Completed] Spark partitioning validation
-[Completed] Deterministic local K-Means
-[Completed] Partition-level Spark clustering
-[Completed] Candidate-center aggregation
-[Completed] Distributed global K-Means iteration
-[Completed] Global convergence loop
-[Completed] Complete Parallel K-Means pipeline
-[Completed] End-to-end Spark demonstration
-[Completed] Runtime instrumentation
-[Completed] Runtime validation
+[Completed] Spark development environment and partitioning validation
+[Completed] Deterministic local K-Means and partition-level clustering
+[Completed] Candidate-center aggregation and distributed global refinement
+[Completed] Complete Parallel K-Means pipeline and end-to-end demonstration
+[Completed] Runtime instrumentation and validation
 [Completed] Deterministic synthetic benchmark datasets
-[Completed] Separate iteration and evaluation timing
-[Completed] Controlled benchmark runner
-[Completed] RDD persistence strategy
-[Completed] RDD materialization before clustering
-[Completed] Benchmark RDD cleanup
+[Completed] Controlled benchmark runner and experiment metadata
+[Completed] RDD persistence, materialization, and cleanup
 [Completed] Shared Spark test-session lifecycle
-[Completed] 87-test regression suite
+[Completed] Repeated scalability experiments with local[1], local[2], local[4]
+[Completed] 10,000-record and 50,000-record experiments
+[Completed] Conventional K-Means baseline evaluation
+[Completed] SSE consistency, runtime, and speedup analysis
+[Completed] Report-ready experimental figures and tables
+[Completed] Research and methodology documentation
+[Completed] Final report and professional presentation prepared
+[Completed] 374-test automated regression suite
 ```
 
-Current development milestone:
+### Verified Scalability Results
+
+The main synthetic experiments used 20 numerical features, five clusters, four partitions, and three measured trials (seeds 42, 43, and 44) per configuration. All 18 measured runs converged.
+
+| Records | Spark master | Mean runtime (s) | Speedup |
+|---:|---|---:|---:|
+| 10,000 | local[1] | 8.033 | 1.000x |
+| 10,000 | local[2] | 5.642 | 1.424x |
+| 10,000 | local[4] | 4.090 | 1.964x |
+| 50,000 | local[1] | 116.765 | 1.000x |
+| 50,000 | local[2] | 79.243 | 1.474x |
+| 50,000 | local[4] | 39.918 | 2.925x |
+
+Mean SSE was consistent across worker settings within each dataset size: approximately 200,921.733 for 10,000 records and 1,000,547.881 for 50,000 records.
+
+The automated regression suite reported **374 passed, 1 warning**. The warning concerned PySpark compatibility with pandas 3.x and did not fail the suite.
+
+### Remaining Reviews and Submission Tasks
 
 ```text
-[In Progress] Experimental benchmark foundation
+[Review] Partition-count sensitivity experiments
+[Review] KDD Cup 99 experimental evaluation
+[Review] Clustering purity evaluation
+[Review] Memory usage investigation
+[Review] Direct numerical comparison with reference-paper results
+[Review] Programming-language requirement
+[Pending] Visual review of final report and presentation
+[Pending] Four-member presentation and live-demo rehearsal
+[Pending] Similarity check and final course submission
 ```
 
-Planned work:
-
-```text
-[Planned] Controlled 1,000-record benchmark validation
-[Planned] Experiment metadata schema
-[Planned] local[1] / local[2] / local[4] experiments
-[Planned] Partition-count experiments
-[Planned] Repeated benchmark trials
-[Planned] Progressive dataset scaling
-[Planned] Conventional K-Means comparison
-[Planned] KDD Cup 99 experiment
-[Planned] Purity evaluation
-[Planned] SSE comparison
-[Planned] Runtime and speedup analysis
-[Planned] Memory investigation
-[Planned] Comparison with reference-paper results
-[Planned] Report-ready figures and tables
-```
+Review items are not represented as completed without supporting evidence.
 
 ---
 
@@ -709,76 +717,42 @@ Planned work:
 
 ### Local Spark Execution
 
-The current environment uses Spark local mode on one physical machine.
+The experiments used Spark local mode on one physical computer. `local[1]`, `local[2]`, and `local[4]` vary local parallelism but do **not** represent a multi-node Spark cluster. The measured speedups therefore demonstrate **local parallel scalability**, not the multi-machine performance of the reference paper.
 
-Although:
+### Dataset Scope and Partitioning
 
-```text
-local[1]
-local[2]
-local[4]
-```
+The principal verified scalability experiments used deterministic synthetic datasets with 10,000 or 50,000 records, 20 numerical features, five clusters, and four partitions. These controlled data support reproducibility but do not establish performance on arbitrary real-world datasets. Varying Spark local worker settings is not the same as varying partition count.
 
-allow different levels of parallel execution, these configurations are not equivalent to the three-machine Spark cluster used by the reference paper.
+### Timing and Repetition
 
-Results from local Spark experiments will therefore be described as local parallel scalability experiments rather than direct reproductions of the paper's physical cluster configuration.
-
-### Timing Definition
-
-The runtime instrumentation separates:
-
-- initialization,
-- iterative global clustering,
-- final-center evaluation,
-- and total pipeline runtime.
-
-The controlled benchmark runner additionally persists and materializes the experiment RDD before the clustering pipeline begins.
-
-This reduces distortion caused by including initial RDD computation in the measured clustering phase.
-
-Report-grade runtime comparisons still require controlled repeated trials and consistent experimental configurations.
+The implementation separately records initialization, global clustering, final evaluation, and total pipeline time. The benchmark runner persists and materializes the RDD before timing clustering, reducing the influence of initial data materialization. Each of six configurations used three measured seeds. Results should not be generalized to other hardware without additional testing.
 
 ### Convergence Definition
 
-The current implementation uses **maximum squared center movement** as its convergence criterion.
+The global K-Means implementation uses **changes in clustering cost (SSE)** as a convergence criterion, with a tolerance of `1e-6` and up to 100 global iterations in the final experiments. This differs from the earlier README statement about maximum squared center movement. The implementation remains a custom interpretation of the paper, not a line-by-line reproduction.
 
-The reference paper describes convergence using a **change in clustering cost**.
+### Conventional K-Means Baseline
 
-This methodological difference must either be aligned before final paper-comparison experiments or clearly documented when interpreting the results.
+A conventional K-Means baseline was evaluated. Because baseline and parallel approaches differ in initialization strategy, clustering-quality comparisons require caution and should not be described as perfectly controlled, apples-to-apples comparisons.
 
-Therefore, the current implementation should not yet be described as an exact reproduction of every convergence detail in the reference paper.
+### Additional Evaluation Scope
 
-### Dataset Persistence
+Partition-count sensitivity, KDD Cup 99, purity, and memory measurements must not be described as completed until their corresponding results are verified. Direct numerical comparisons with the reference paper are constrained by different hardware, data, and implementation details.
 
-RDD persistence is now controlled by the benchmark layer rather than the clustering algorithm.
+### RDD Resource Lifecycle
 
-The benchmark runner:
+The benchmark framework, rather than the core algorithm, manages persistence and cleanup:
 
 ```text
-creates the RDD
-        |
-persists it
-        |
-materializes it
-        |
-executes clustering
-        |
-collects benchmark metadata
-        |
-unpersists the RDD
+Create input RDD -> Persist -> Materialize -> Run clustering
+                 -> Record metadata -> Unpersist
 ```
 
-Cleanup also occurs when RDD materialization fails.
-
-This design keeps resource lifecycle management outside the core Parallel K-Means algorithm while providing a controlled environment for repeated Spark operations.
+Failure-path cleanup is also tested.
 
 ### Programming-Language Requirement
 
-The course project requires the reproduction to use a programming language different from the language used by the selected paper.
-
-The reference paper describes its Spark implementation and mentions `sklearn` when discussing generation of one experimental dataset, but the programming language used for the paper's Spark-Kmeans implementation has not yet been clearly identified from the paper.
-
-This requirement must be confirmed before the final implementation language is treated as approved for submission.
+The course requires a different implementation language from the selected paper. The paper discusses Spark and references `sklearn`, but the implementation language used in its Spark experiments has not been conclusively established from the verified project materials. Confirm this requirement with the instructor before final submission.
 
 ---
 
