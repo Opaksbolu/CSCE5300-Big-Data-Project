@@ -2,7 +2,7 @@
 
 ## Abstract
 
-K-Means is a widely used clustering algorithm for organizing unlabeled data into groups based on similarity. However, its computational requirements can increase substantially as datasets become larger. This project investigates a parallel implementation of K-Means using Apache Spark, inspired by the research paper *Big Data Clustering Method Based on Parallel K-Means* by Liu et al. (2024).
+K-Means is a widely used clustering algorithm for organizing unlabeled data into groups based on similarity. However, its computational requirements can increase substantially as datasets become larger. This project investigates a parallel implementation of K-Means using Apache Spark, inspired by the research paper _Big Data Clustering Method Based on Parallel K-Means_ by Liu et al. (2024).
 
 The implementation uses a partition-based approach in which K-Means is first performed independently on individual Spark partitions. The resulting local cluster centers are aggregated to initialize a global clustering model, followed by distributed iterations that update cluster assignments and centers. A traditional single-process K-Means implementation is also evaluated to examine differences in runtime, initialization behavior, and clustering quality.
 
@@ -22,7 +22,7 @@ Although traditional K-Means is relatively straightforward to implement, its com
 
 Parallel processing offers a potential approach to addressing these challenges. By distributing calculations across multiple processing units, a clustering algorithm may reduce execution time while preserving the quality of its results. Apache Spark provides a framework for parallel data processing through distributed data structures and operations, including Resilient Distributed Datasets (RDDs), partition transformations, broadcast variables, and keyed reductions.
 
-This project investigates a Spark-based Parallel K-Means implementation inspired by the research paper *Big Data Clustering Method Based on Parallel K-Means* by Liu et al. [1]. The original study presents a parallel clustering approach designed for large datasets. Our project adapts its partition-based clustering and global refinement concepts into a custom Python and PySpark implementation.
+This project investigates a Spark-based Parallel K-Means implementation inspired by the research paper _Big Data Clustering Method Based on Parallel K-Means_ by Liu et al. [1]. The original study presents a parallel clustering approach designed for large datasets. Our project adapts its partition-based clustering and global refinement concepts into a custom Python and PySpark implementation.
 
 The implemented algorithm first performs K-Means independently within Spark partitions. The resulting local cluster centers are collected and aggregated to initialize a global clustering model. Distributed iterations then assign observations to their nearest centers, combine cluster statistics, and update the global centers until a stopping criterion is satisfied.
 
@@ -86,7 +86,7 @@ The project contributes a reproducible implementation, a traditional K-Means bas
 
 ### Research Foundation
 
-Our project is inspired by *Big Data Clustering Method Based on Parallel K-Means* by Liu et al. [1]. The paper investigates how parallel processing can improve the efficiency of K-Means clustering for large datasets.
+Our project is inspired by _Big Data Clustering Method Based on Parallel K-Means_ by Liu et al. [1]. The paper investigates how parallel processing can improve the efficiency of K-Means clustering for large datasets.
 
 The proposed approach combines partition-level clustering with global refinement. Rather than relying exclusively on a traditional single-process clustering procedure, the algorithm distributes selected operations across a parallel processing environment.
 
@@ -94,24 +94,24 @@ Our implementation follows the general research direction of the paper while ada
 
 ### Comparison of the Original Method and Our Implementation
 
-| Component | Original Research Paper [1] | Our Implementation |
-|---|---|---|
-| Main objective | Improve large-scale clustering through parallel K-Means | Evaluate a partition-based Spark K-Means implementation |
-| Processing framework | Apache Spark | Python and PySpark RDD operations |
-| Data partitioning | Data distributed across partitions | Spark RDD partitioning |
-| Local clustering | K-Means performed on partitioned data | Custom K-Means executed within partitions |
-| Local initialization | Partition-level initialization procedure | K-Means++ initialization within local clustering |
-| Candidate centers | Local clustering results combined for global initialization | Local candidate centers aggregated using deterministic restarts |
-| Global assignment | Parallel cluster assignment | Distributed nearest-center assignment |
-| Global aggregation | Parallel combination of clustering statistics | Spark keyed reductions using `reduceByKey` |
-| Center distribution | Cluster centers made available to parallel workers | Spark broadcast variables |
-| Convergence | Global stopping criterion | Absolute change in successive SSE values |
-| Datasets | KDD Cup99 and large synthetic data | Synthetic datasets with 10,000 and 50,000 records |
-| Features | Dataset-dependent | 20 numerical features |
-| Number of clusters | Dataset-dependent | Five clusters |
-| Computing environment | Distributed computing environment | Single Apple Silicon computer using Spark local mode |
-| Evaluation | Execution time and clustering quality | Runtime, speedup, SSE, and convergence |
-| Traditional baseline | Traditional K-Means | Custom single-process K-Means with initialization variants |
+| Component             | Original Research Paper [1]                                 | Our Implementation                                              |
+| --------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Main objective        | Improve large-scale clustering through parallel K-Means     | Evaluate a partition-based Spark K-Means implementation         |
+| Processing framework  | Apache Spark                                                | Python and PySpark RDD operations                               |
+| Data partitioning     | Data distributed across partitions                          | Spark RDD partitioning                                          |
+| Local clustering      | K-Means performed on partitioned data                       | Custom K-Means executed within partitions                       |
+| Local initialization  | Partition-level initialization procedure                    | K-Means++ initialization within local clustering                |
+| Candidate centers     | Local clustering results combined for global initialization | Local candidate centers aggregated using deterministic restarts |
+| Global assignment     | Parallel cluster assignment                                 | Distributed nearest-center assignment                           |
+| Global aggregation    | Parallel combination of clustering statistics               | Spark keyed reductions using `reduceByKey`                      |
+| Center distribution   | Cluster centers made available to parallel workers          | Spark broadcast variables                                       |
+| Convergence           | Global stopping criterion                                   | Absolute change in successive SSE values                        |
+| Datasets              | KDD Cup99 and large synthetic data                          | Synthetic datasets with 10,000 and 50,000 records               |
+| Features              | Dataset-dependent                                           | 20 numerical features                                           |
+| Number of clusters    | Dataset-dependent                                           | Five clusters                                                   |
+| Computing environment | Distributed computing environment                           | Single Apple Silicon computer using Spark local mode            |
+| Evaluation            | Execution time and clustering quality                       | Runtime, speedup, SSE, and convergence                          |
+| Traditional baseline  | Traditional K-Means                                         | Custom single-process K-Means with initialization variants      |
 
 ### Implementation Similarities
 
@@ -151,7 +151,7 @@ It does not establish that the original paper's complete experimental results ha
 
 ## 1. Research Objective and Experimental Design
 
-This project investigates the performance and clustering behavior of a Spark-based Parallel K-Means implementation inspired by the research paper *Big Data Clustering Method Based on Parallel K-Means* by Liu et al. [1].
+This project investigates the performance and clustering behavior of a Spark-based Parallel K-Means implementation inspired by the research paper _Big Data Clustering Method Based on Parallel K-Means_ by Liu et al. [1].
 
 The primary objective is to evaluate whether parallelizing K-Means operations improves execution time as dataset size increases while maintaining comparable clustering quality.
 
@@ -217,16 +217,16 @@ During global refinement, the SSE recorded for each iteration is calculated usin
 
 ### 2.5 Implementation Mapping
 
-| Stage | Primary source file |
-| --- | --- |
-| Local K-Means, distance calculations, initialization | `src/parallel/local_kmeans.py` |
-| Partition-level execution | `src/parallel/partition_clustering.py` |
-| Candidate-center aggregation | `src/parallel/center_aggregation.py` |
-| Distributed assignment and reduction | `src/parallel/global_iteration.py` |
-| Global iteration loop and evaluation | `src/parallel/global_kmeans.py` |
-| End-to-end algorithm orchestration | `src/parallel/parallel_kmeans.py` |
-| Dataset generation and benchmark configuration | `src/experiments/synthetic_data.py`, `src/experiments/experiment_runner.py` |
-| RDD persistence and benchmark lifecycle | `src/experiments/benchmark_runner.py` |
+| Stage                                                | Primary source file                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Local K-Means, distance calculations, initialization | `src/parallel/local_kmeans.py`                                              |
+| Partition-level execution                            | `src/parallel/partition_clustering.py`                                      |
+| Candidate-center aggregation                         | `src/parallel/center_aggregation.py`                                        |
+| Distributed assignment and reduction                 | `src/parallel/global_iteration.py`                                          |
+| Global iteration loop and evaluation                 | `src/parallel/global_kmeans.py`                                             |
+| End-to-end algorithm orchestration                   | `src/parallel/parallel_kmeans.py`                                           |
+| Dataset generation and benchmark configuration       | `src/experiments/synthetic_data.py`, `src/experiments/experiment_runner.py` |
+| RDD persistence and benchmark lifecycle              | `src/experiments/benchmark_runner.py`                                       |
 
 ### 2.6 Implementation Constraints
 
@@ -260,15 +260,15 @@ The generator constructs a specified number of cluster centers and creates obser
 
 The principal dataset configurations contain:
 
-| Parameter | Experimental setting |
-| --- | --- |
-| Dataset sizes | 10,000 and 50,000 records |
-| Numerical features | 20 |
-| Ground-truth clusters | 5 |
-| Gaussian noise standard deviation | 1.0 |
-| Center separation parameter | 10.0 |
-| Spark RDD partitions | 4 |
-| Measured random seeds | 42, 43, and 44 |
+| Parameter                         | Experimental setting      |
+| --------------------------------- | ------------------------- |
+| Dataset sizes                     | 10,000 and 50,000 records |
+| Numerical features                | 20                        |
+| Ground-truth clusters             | 5                         |
+| Gaussian noise standard deviation | 1.0                       |
+| Center separation parameter       | 10.0                      |
+| Spark RDD partitions              | 4                         |
+| Measured random seeds             | 42, 43, and 44            |
 
 The synthetic generator uses Python's seeded random-number generator, allowing the same dataset to be reconstructed from identical parameters and a matching random seed.
 
@@ -278,16 +278,16 @@ This benchmark dataset is distinct from the separate dataset-preparation pipelin
 
 The Parallel K-Means experiments use a controlled configuration across the tested Spark local execution settings.
 
-| Parameter | Value |
-| --- | --- |
-| Number of clusters (`k`) | 5 |
-| Local K-Means maximum iterations | 100 |
-| Global K-Means maximum iterations | 100 |
-| Local convergence tolerance | `1e-6` |
-| Global SSE-change tolerance | `1e-6` |
-| Candidate-center aggregation restarts | 5 |
-| Measured repetitions per configuration | 3 |
-| Initial unmeasured warm-up runs per Spark-master process | 1 |
+| Parameter                                                | Value  |
+| -------------------------------------------------------- | ------ |
+| Number of clusters (`k`)                                 | 5      |
+| Local K-Means maximum iterations                         | 100    |
+| Global K-Means maximum iterations                        | 100    |
+| Local convergence tolerance                              | `1e-6` |
+| Global SSE-change tolerance                              | `1e-6` |
+| Candidate-center aggregation restarts                    | 5      |
+| Measured repetitions per configuration                   | 3      |
+| Initial unmeasured warm-up runs per Spark-master process | 1      |
 
 The local and global convergence tolerances are applied to different quantities. The local stage checks the maximum squared movement of cluster centers, whereas the global stage checks the absolute change in SSE between consecutive iterations.
 
@@ -600,13 +600,13 @@ Table 1 summarizes the measured execution times and local speedups.
 **Table 1. Spark Parallel K-Means scalability results**
 
 | Records | Spark configuration | Mean runtime (s) | Sample SD (s) | Speedup | Runtime reduction |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 10,000 | `local[1]` | 8.033 | 0.931 | 1.000x | 0.00% |
-| 10,000 | `local[2]` | 5.642 | 0.674 | 1.424x | 29.76% |
-| 10,000 | `local[4]` | 4.090 | 0.882 | 1.964x | 49.09% |
-| 50,000 | `local[1]` | 116.765 | 13.770 | 1.000x | 0.00% |
-| 50,000 | `local[2]` | 79.243 | 12.596 | 1.474x | 32.13% |
-| 50,000 | `local[4]` | 39.918 | 1.389 | 2.925x | 65.81% |
+| ------- | ------------------- | ---------------: | ------------: | ------: | ----------------: |
+| 10,000  | `local[1]`          |            8.033 |         0.931 |  1.000x |             0.00% |
+| 10,000  | `local[2]`          |            5.642 |         0.674 |  1.424x |            29.76% |
+| 10,000  | `local[4]`          |            4.090 |         0.882 |  1.964x |            49.09% |
+| 50,000  | `local[1]`          |          116.765 |        13.770 |  1.000x |             0.00% |
+| 50,000  | `local[2]`          |           79.243 |        12.596 |  1.474x |            32.13% |
+| 50,000  | `local[4]`          |           39.918 |         1.389 |  2.925x |            65.81% |
 
 For the 10,000-record dataset, the average runtime decreased from
 8.033 seconds with `local[1]` to 4.090 seconds with `local[4]`.
@@ -640,10 +640,10 @@ repetitions for each Spark configuration.
 
 **Table 2. Mean SSE across Spark configurations**
 
-| Records | `local[1]` | `local[2]` | `local[4]` |
-| --- | ---: | ---: | ---: |
-| 10,000 | 200,921.733 | 200,921.733 | 200,921.733 |
-| 50,000 | 1,000,547.881 | 1,000,547.881 | 1,000,547.881 |
+| Records |    `local[1]` |    `local[2]` |    `local[4]` |
+| ------- | ------------: | ------------: | ------------: |
+| 10,000  |   200,921.733 |   200,921.733 |   200,921.733 |
+| 50,000  | 1,000,547.881 | 1,000,547.881 | 1,000,547.881 |
 
 The SSE values were consistent across all three Spark execution
 configurations for each matched random seed.
@@ -661,7 +661,48 @@ the two dataset sizes.
 
 ![](../../results/figures/stage-9h6-clustering-quality.png)
 
-### 6.4 Traditional K-Means and Parallel K-Means Comparison
+### 6.4 External Clustering-Quality Evaluation: Purity, ARI, and NMI
+
+Table 2a reports purity, ARI, and NMI for Spark Parallel K-Means
+(`local[1]`) and traditional K-Means on two 1,000-record labeled
+samples.
+
+**Table 2a. Clustering quality against ground-truth labels**
+
+| Dataset      | Algorithm        | Purity |    ARI |   NMI |
+| ------------ | ---------------- | -----: | -----: | ----: |
+| Synthetic-1K | Spark `local[1]` |  1.000 |  1.000 | 1.000 |
+| Synthetic-1K | Traditional      |  1.000 |  1.000 | 1.000 |
+| KDD99-1K     | Spark `local[1]` |  0.797 | -0.005 | 0.011 |
+| KDD99-1K     | Traditional      |  0.975 |  0.432 | 0.535 |
+
+**Figure 3a. Clustering quality vs. ground-truth labels.**
+
+![Figure 3a. Clustering quality vs. ground-truth labels.](../../results/figures/stage-quality-comparison-purity-ari-nmi.png)
+
+On the synthetic sample, both algorithms recover the true structure
+exactly, consistent with well-separated synthetic clusters.
+
+On the KDD99 sample, Spark's purity (0.797) appears reasonable in
+isolation, but its ARI is negative and its NMI is near zero —
+indicating essentially no correspondence with the true intrusion-type
+labels beyond chance. The recorded cluster sizes for this run
+(`1; 936; 1; 61; 1`) show why: one cluster absorbed 936 of 1,000
+records, so high purity was achieved by concentration rather than
+genuine class separation. Traditional K-Means on the identical sample
+scored meaningfully higher on both ARI (0.432) and NMI (0.535),
+suggesting its initialization happened to separate the minority
+classes more effectively on this run.
+
+As with the SSE-based comparisons in Section 6.4 [renumber to 6.5],
+the traditional and Spark implementations use different
+initialization procedures, so this quality gap should not be read as
+a controlled algorithm-only comparison. It may partly reflect
+initialization sensitivity rather than a general Spark-versus-
+traditional effect; confirming that would require rerunning with
+matched initializations, which is out of scope here.
+
+### 6.5 Traditional K-Means and Parallel K-Means Comparison
 
 A separate matched-dataset comparison used 10,000 records, 20 numerical
 features, five clusters, and five measured random seeds.
@@ -674,11 +715,11 @@ The comparison included:
 
 **Table 3. Traditional and Spark K-Means comparison**
 
-| Algorithm | Mean runtime (s) | Sample SD (s) | Mean SSE | Convergence rate |
-| --- | ---: | ---: | ---: | ---: |
-| Traditional K-Means, 1 initialization | 0.928 | 1.106 | 600,670.256 | 100% |
-| Traditional K-Means, 5 initializations | 3.945 | 1.177 | 200,618.907 | 100% |
-| Spark Parallel K-Means, `local[2]` | 3.161 | 0.489 | 200,618.907 | 100% |
+| Algorithm                              | Mean runtime (s) | Sample SD (s) |    Mean SSE | Convergence rate |
+| -------------------------------------- | ---------------: | ------------: | ----------: | ---------------: |
+| Traditional K-Means, 1 initialization  |            0.928 |         1.106 | 600,670.256 |             100% |
+| Traditional K-Means, 5 initializations |            3.945 |         1.177 | 200,618.907 |             100% |
+| Spark Parallel K-Means, `local[2]`     |            3.161 |         0.489 | 200,618.907 |             100% |
 
 The single-initialization traditional baseline had the lowest
 mean runtime, but it also had a substantially higher mean SSE.
@@ -693,7 +734,7 @@ However, the initialization procedures differ between these
 implementations. Consequently, this runtime difference must
 not be presented as a workload-equivalent parallel speedup.
 
-### 6.5 Effect of Initialization on Clustering Quality
+### 6.6 Effect of Initialization on Clustering Quality
 
 The most significant difference between the traditional
 initialization strategies occurred for random seed 45.
@@ -721,7 +762,7 @@ the algorithm to retain the solution with the lowest SSE.
 
 ![](../../results/figures/stage-9i3-baseline-quality.png)
 
-### 6.6 Convergence Results
+### 6.7 Convergence Results
 
 All measured runs in the principal scalability experiments
 reported successful convergence.
@@ -737,7 +778,7 @@ The seed-45 traditional baseline demonstrates this distinction:
 the single-initialization run converged but produced a much
 higher SSE than the alternative initialization strategies.
 
-### 6.7 Interpretation of Findings
+### 6.8 Interpretation of Findings
 
 The experimental results support three main observations.
 
@@ -756,7 +797,7 @@ Together, these findings support the practical value of
 parallel execution and careful initialization when implementing
 K-Means for larger numerical datasets.
 
-### 6.8 Limitations of the Results
+### 6.9 Limitations of the Results
 
 The experiments were performed on a single Apple Silicon
 computer using Spark local mode.
@@ -779,6 +820,8 @@ initialization procedures and computational structures.
 Finally, system-level effects such as background processes,
 memory pressure, and task scheduling may influence the
 observed execution times.
+
+The external quality evaluation in Section 6.4 used only 1,000-record labeled samples, which is substantially smaller than the 10,000- and 50,000-record scalability experiments; its results should not be generalized to the larger scale.
 
 These limitations should be considered when interpreting the
 results or generalizing them to larger production environments.
@@ -824,7 +867,6 @@ These extensions would help determine whether the improvements observed
 in the current single-machine experiments remain effective for larger,
 more varied, and genuinely distributed workloads.
 
-
 ## Conclusion
 
 This project investigated a custom implementation of Parallel K-Means
@@ -863,33 +905,31 @@ The project therefore provides a working implementation and an
 experimental foundation for further investigation of scalable
 K-Means clustering using Apache Spark.
 
-
 ## References
 
 [1] H. Liu, Y. Bai, Z. Chen, and Z. Zhang,
 "Big data clustering method based on parallel K-means,"
-in *2024 IEEE 4th International Conference on Power,
-Electronics and Computer Applications (ICPECA)*, 2024.
+in _2024 IEEE 4th International Conference on Power,
+Electronics and Computer Applications (ICPECA)_, 2024.
 doi: 10.1109/ICPECA60615.2024.10470970.
 
-
 [2] S. P. Lloyd, "Least squares quantization in PCM,"
-*IEEE Transactions on Information Theory*, vol. 28,
+_IEEE Transactions on Information Theory_, vol. 28,
 no. 2, pp. 129–137, 1982.
 doi: 10.1109/TIT.1982.1056489.
 
 [3] D. Arthur and S. Vassilvitskii,
 "k-means++: The advantages of careful seeding,"
-in *Proceedings of the Eighteenth Annual ACM-SIAM
-Symposium on Discrete Algorithms (SODA)*,
+in _Proceedings of the Eighteenth Annual ACM-SIAM
+Symposium on Discrete Algorithms (SODA)_,
 pp. 1027–1035, 2007.
 
 [4] B. Bahmani, B. Moseley, A. Vattani, R. Kumar,
 and S. Vassilvitskii, "Scalable K-Means++,"
-*Proceedings of the VLDB Endowment*,
+_Proceedings of the VLDB Endowment_,
 vol. 5, no. 7, pp. 622–633, 2012.
 doi: 10.14778/2180912.2180915.
 
 [5] Apache Software Foundation,
-"RDD Programming Guide," *Apache Spark Documentation*.
+"RDD Programming Guide," _Apache Spark Documentation_.
 https://spark.apache.org/docs/latest/rdd-programming-guide.html

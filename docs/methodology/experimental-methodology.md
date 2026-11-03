@@ -2,7 +2,7 @@
 
 ## 1. Research Objective and Experimental Design
 
-This project investigates the performance and clustering behavior of a Spark-based Parallel K-Means implementation inspired by the research paper *Big Data Clustering Method Based on Parallel K-Means* by Liu et al. [1].
+This project investigates the performance and clustering behavior of a Spark-based Parallel K-Means implementation inspired by the research paper _Big Data Clustering Method Based on Parallel K-Means_ by Liu et al. [1].
 
 The primary objective is to evaluate whether parallelizing K-Means operations improves execution time as dataset size increases while maintaining comparable clustering quality.
 
@@ -49,13 +49,13 @@ This is a nine-step description of **our implementation**, not a claim that ever
 K-Means minimizes the within-cluster sum of squared Euclidean distances:
 
 \[
-\mathrm{SSE} = \sum_{i=1}^{n} \left\|x_i - \mu_{c(i)}\right\|_2^2,
+\mathrm{SSE} = \sum*{i=1}^{n} \left\|x_i - \mu*{c(i)}\right\|\_2^2,
 \]
 
 where `x_i` is observation `i`, `c(i)` is its assigned cluster, and `μ` denotes a cluster center. For a nonempty cluster `j`, its updated center is the arithmetic mean of assigned observations:
 
 \[
-\mu_j = \frac{1}{|C_j|}\sum_{x_i \in C_j} x_i.
+\mu*j = \frac{1}{|C_j|}\sum*{x_i \in C_j} x_i.
 \]
 
 The distributed implementation calculates these means from aggregated coordinate sums and counts rather than collecting all assigned observations at the driver.
@@ -68,16 +68,16 @@ During global refinement, the SSE recorded for each iteration is calculated usin
 
 ### 2.5 Implementation Mapping
 
-| Stage | Primary source file |
-| --- | --- |
-| Local K-Means, distance calculations, initialization | `src/parallel/local_kmeans.py` |
-| Partition-level execution | `src/parallel/partition_clustering.py` |
-| Candidate-center aggregation | `src/parallel/center_aggregation.py` |
-| Distributed assignment and reduction | `src/parallel/global_iteration.py` |
-| Global iteration loop and evaluation | `src/parallel/global_kmeans.py` |
-| End-to-end algorithm orchestration | `src/parallel/parallel_kmeans.py` |
-| Dataset generation and benchmark configuration | `src/experiments/synthetic_data.py`, `src/experiments/experiment_runner.py` |
-| RDD persistence and benchmark lifecycle | `src/experiments/benchmark_runner.py` |
+| Stage                                                | Primary source file                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Local K-Means, distance calculations, initialization | `src/parallel/local_kmeans.py`                                              |
+| Partition-level execution                            | `src/parallel/partition_clustering.py`                                      |
+| Candidate-center aggregation                         | `src/parallel/center_aggregation.py`                                        |
+| Distributed assignment and reduction                 | `src/parallel/global_iteration.py`                                          |
+| Global iteration loop and evaluation                 | `src/parallel/global_kmeans.py`                                             |
+| End-to-end algorithm orchestration                   | `src/parallel/parallel_kmeans.py`                                           |
+| Dataset generation and benchmark configuration       | `src/experiments/synthetic_data.py`, `src/experiments/experiment_runner.py` |
+| RDD persistence and benchmark lifecycle              | `src/experiments/benchmark_runner.py`                                       |
 
 ### 2.6 Implementation Constraints
 
@@ -111,15 +111,15 @@ The generator constructs a specified number of cluster centers and creates obser
 
 The principal dataset configurations contain:
 
-| Parameter | Experimental setting |
-| --- | --- |
-| Dataset sizes | 10,000 and 50,000 records |
-| Numerical features | 20 |
-| Ground-truth clusters | 5 |
-| Gaussian noise standard deviation | 1.0 |
-| Center separation parameter | 10.0 |
-| Spark RDD partitions | 4 |
-| Measured random seeds | 42, 43, and 44 |
+| Parameter                         | Experimental setting      |
+| --------------------------------- | ------------------------- |
+| Dataset sizes                     | 10,000 and 50,000 records |
+| Numerical features                | 20                        |
+| Ground-truth clusters             | 5                         |
+| Gaussian noise standard deviation | 1.0                       |
+| Center separation parameter       | 10.0                      |
+| Spark RDD partitions              | 4                         |
+| Measured random seeds             | 42, 43, and 44            |
 
 The synthetic generator uses Python's seeded random-number generator, allowing the same dataset to be reconstructed from identical parameters and a matching random seed.
 
@@ -129,16 +129,16 @@ This benchmark dataset is distinct from the separate dataset-preparation pipelin
 
 The Parallel K-Means experiments use a controlled configuration across the tested Spark local execution settings.
 
-| Parameter | Value |
-| --- | --- |
-| Number of clusters (`k`) | 5 |
-| Local K-Means maximum iterations | 100 |
-| Global K-Means maximum iterations | 100 |
-| Local convergence tolerance | `1e-6` |
-| Global SSE-change tolerance | `1e-6` |
-| Candidate-center aggregation restarts | 5 |
-| Measured repetitions per configuration | 3 |
-| Initial unmeasured warm-up runs per Spark-master process | 1 |
+| Parameter                                                | Value  |
+| -------------------------------------------------------- | ------ |
+| Number of clusters (`k`)                                 | 5      |
+| Local K-Means maximum iterations                         | 100    |
+| Global K-Means maximum iterations                        | 100    |
+| Local convergence tolerance                              | `1e-6` |
+| Global SSE-change tolerance                              | `1e-6` |
+| Candidate-center aggregation restarts                    | 5      |
+| Measured repetitions per configuration                   | 3      |
+| Initial unmeasured warm-up runs per Spark-master process | 1      |
 
 The local and global convergence tolerances are applied to different quantities. The local stage checks the maximum squared movement of cluster centers, whereas the global stage checks the absolute change in SSE between consecutive iterations.
 
@@ -182,7 +182,7 @@ Because the experiments run on one computer, the observed speedups should not be
 
 The synthetic datasets contain deliberately structured Gaussian clusters. Results on these datasets may differ from results on real-world data containing irregular cluster shapes, noise, missing values, or highly imbalanced cluster populations.
 
-A separate project dataset plan includes KDD Cup 99 preprocessing and a scikit-learn-based synthetic-data pipeline. Those planned datasets should not be presented as completed clustering benchmarks unless corresponding execution results have been verified.
+A separate labeled-sample evaluation path, using a 1,000-record KDD Cup 99 sample and a matched 1,000-record synthetic sample, has since been completed and independently verified (Section 5.7 and Section 6.4). This labeled evaluation is distinct from, and smaller in scale than, the principal 10,000/50,000-record scalability study described above; it should not be conflated with those results.
 
 Finally, the custom partition-level K-Means implementation materializes each partition within a worker process, which can limit scalability when partitions become too large for the available memory. Candidate-center aggregation also treats candidate centers equally rather than weighting them by their original partition populations.
 
@@ -312,7 +312,7 @@ different algorithms computationally equivalent.
 For each experimental configuration, the arithmetic mean runtime is:
 
 \[
-\bar{t} = \frac{1}{r}\sum_{i=1}^{r}t_i
+\bar{t} = \frac{1}{r}\sum\_{i=1}^{r}t_i
 \]
 
 where \(t_i\) is the measured runtime of repetition \(i\), and
@@ -322,9 +322,9 @@ Runtime variability is summarized using the sample standard
 deviation:
 
 \[
-s_t =
+s*t =
 \sqrt{
-\frac{\sum_{i=1}^{r}(t_i-\bar{t})^2}{r-1}
+\frac{\sum*{i=1}^{r}(t_i-\bar{t})^2}{r-1}
 }
 \]
 
@@ -343,18 +343,18 @@ of Spark `local[1]` by the mean runtime of another Spark configuration
 at the same dataset size:
 
 \[
-S_p = \frac{\bar{t}_1}{\bar{t}_p}
+S_p = \frac{\bar{t}\_1}{\bar{t}\_p}
 \]
 
-where \(\bar{t}_1\) is the mean runtime using one local worker thread
-and \(\bar{t}_p\) is the mean runtime using \(p\) local worker threads.
+where \(\bar{t}\_1\) is the mean runtime using one local worker thread
+and \(\bar{t}\_p\) is the mean runtime using \(p\) local worker threads.
 
 The corresponding runtime reduction percentage is:
 
 \[
 R_p =
 \left(
-1-\frac{\bar{t}_p}{\bar{t}_1}
+1-\frac{\bar{t}\_p}{\bar{t}\_1}
 \right)\times100\%
 \]
 
@@ -399,7 +399,34 @@ C =
 Convergence does not guarantee that the globally optimal K-Means
 solution has been found.
 
-### 5.7 Interpretation and Statistical Limitations
+### 5.7 External Cluster-Quality Evaluation (Purity, ARI, NMI)
+
+SSE measures clustering compactness but does not indicate whether
+the discovered clusters correspond to any real underlying classes.
+To evaluate that separately, a labeled-sample path withholds
+ground-truth class labels from clustering and applies them only
+afterward, using three independent metrics:
+
+- **Purity** — the fraction of records whose predicted cluster
+  matches the majority true class within that cluster.
+- **Adjusted Rand Index (ARI)** — agreement between predicted and
+  true groupings, corrected for chance; 1.0 is perfect agreement,
+  0.0 is chance-level, and negative values indicate agreement worse
+  than chance.
+- **Normalized Mutual Information (NMI)** — shared information
+  between predicted and true groupings, normalized to [0, 1].
+
+Purity alone can be misleading on imbalanced data, since a
+clustering can score high purity by assigning most records to one
+dominant cluster without separating minority classes. ARI and NMI
+are reported alongside it for this reason.
+
+This evaluation was run on two 1,000-record labeled samples: a
+synthetic sample and a sample drawn from KDD Cup 99. Ground-truth
+labels were excluded from clustering input and used only for
+post-hoc evaluation, keyed by record ID.
+
+### 5.8 Interpretation and Statistical Limitations
 
 The reported statistics are descriptive. No formal hypothesis test
 is used to establish statistically significant runtime differences.
@@ -451,13 +478,13 @@ Table 1 summarizes the measured execution times and local speedups.
 **Table 1. Spark Parallel K-Means scalability results**
 
 | Records | Spark configuration | Mean runtime (s) | Sample SD (s) | Speedup | Runtime reduction |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 10,000 | `local[1]` | 8.033 | 0.931 | 1.000x | 0.00% |
-| 10,000 | `local[2]` | 5.642 | 0.674 | 1.424x | 29.76% |
-| 10,000 | `local[4]` | 4.090 | 0.882 | 1.964x | 49.09% |
-| 50,000 | `local[1]` | 116.765 | 13.770 | 1.000x | 0.00% |
-| 50,000 | `local[2]` | 79.243 | 12.596 | 1.474x | 32.13% |
-| 50,000 | `local[4]` | 39.918 | 1.389 | 2.925x | 65.81% |
+| ------- | ------------------- | ---------------: | ------------: | ------: | ----------------: |
+| 10,000  | `local[1]`          |            8.033 |         0.931 |  1.000x |             0.00% |
+| 10,000  | `local[2]`          |            5.642 |         0.674 |  1.424x |            29.76% |
+| 10,000  | `local[4]`          |            4.090 |         0.882 |  1.964x |            49.09% |
+| 50,000  | `local[1]`          |          116.765 |        13.770 |  1.000x |             0.00% |
+| 50,000  | `local[2]`          |           79.243 |        12.596 |  1.474x |            32.13% |
+| 50,000  | `local[4]`          |           39.918 |         1.389 |  2.925x |            65.81% |
 
 For the 10,000-record dataset, the average runtime decreased from
 8.033 seconds with `local[1]` to 4.090 seconds with `local[4]`.
@@ -491,10 +518,10 @@ repetitions for each Spark configuration.
 
 **Table 2. Mean SSE across Spark configurations**
 
-| Records | `local[1]` | `local[2]` | `local[4]` |
-| --- | ---: | ---: | ---: |
-| 10,000 | 200,921.733 | 200,921.733 | 200,921.733 |
-| 50,000 | 1,000,547.881 | 1,000,547.881 | 1,000,547.881 |
+| Records |    `local[1]` |    `local[2]` |    `local[4]` |
+| ------- | ------------: | ------------: | ------------: |
+| 10,000  |   200,921.733 |   200,921.733 |   200,921.733 |
+| 50,000  | 1,000,547.881 | 1,000,547.881 | 1,000,547.881 |
 
 The SSE values were consistent across all three Spark execution
 configurations for each matched random seed.
@@ -525,11 +552,11 @@ The comparison included:
 
 **Table 3. Traditional and Spark K-Means comparison**
 
-| Algorithm | Mean runtime (s) | Sample SD (s) | Mean SSE | Convergence rate |
-| --- | ---: | ---: | ---: | ---: |
-| Traditional K-Means, 1 initialization | 0.928 | 1.106 | 600,670.256 | 100% |
-| Traditional K-Means, 5 initializations | 3.945 | 1.177 | 200,618.907 | 100% |
-| Spark Parallel K-Means, `local[2]` | 3.161 | 0.489 | 200,618.907 | 100% |
+| Algorithm                              | Mean runtime (s) | Sample SD (s) |    Mean SSE | Convergence rate |
+| -------------------------------------- | ---------------: | ------------: | ----------: | ---------------: |
+| Traditional K-Means, 1 initialization  |            0.928 |         1.106 | 600,670.256 |             100% |
+| Traditional K-Means, 5 initializations |            3.945 |         1.177 | 200,618.907 |             100% |
+| Spark Parallel K-Means, `local[2]`     |            3.161 |         0.489 | 200,618.907 |             100% |
 
 The single-initialization traditional baseline had the lowest
 mean runtime, but it also had a substantially higher mean SSE.
@@ -638,6 +665,6 @@ results or generalizing them to larger production environments.
 
 [1] H. Liu, Y. Bai, Z. Chen, and Z. Zhang,
 "Big data clustering method based on parallel K-means,"
-in *2024 IEEE 4th International Conference on Power,
-Electronics and Computer Applications (ICPECA)*, 2024.
+in _2024 IEEE 4th International Conference on Power,
+Electronics and Computer Applications (ICPECA)_, 2024.
 doi: 10.1109/ICPECA60615.2024.10470970.
