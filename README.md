@@ -400,7 +400,7 @@ Run the complete test suite:
 python -m pytest -v --tb=short
 ```
 
-At the current stable milestone, the project contains **87 passing tests**.
+At the latest verified regression checkpoint, the project passed **464 tests**.
 
 The test suite covers:
 
@@ -435,8 +435,7 @@ Using one controlled Spark test session avoids competing Spark contexts and prov
 The current validated regression checkpoint is:
 
 ```text
-87 tests collected
-87 tests passed
+464 tests passed
 ```
 
 ---

@@ -106,11 +106,11 @@ Our implementation follows the general research direction of the paper while ada
 | Global aggregation    | Parallel combination of clustering statistics               | Spark keyed reductions using `reduceByKey`                      |
 | Center distribution   | Cluster centers made available to parallel workers          | Spark broadcast variables                                       |
 | Convergence           | Global stopping criterion                                   | Absolute change in successive SSE values                        |
-| Datasets              | KDD Cup99 and large synthetic data                          | Synthetic datasets with 10,000 and 50,000 records               |
-| Features              | Dataset-dependent                                           | 20 numerical features                                           |
-| Number of clusters    | Dataset-dependent                                           | Five clusters                                                   |
+| Datasets              | KDD Cup99 and large synthetic data                          | Synthetic scalability datasets (10,000 and 50,000 records); separate 1,000-record labeled synthetic and KDD99 samples |
+| Features              | Dataset-dependent                                           | 20 numerical features in synthetic experiments; 41 features in the labeled KDD99 sample |
+| Number of clusters    | Dataset-dependent                                           | Five predicted clusters; the labeled KDD99 sample contains four ground-truth classes |
 | Computing environment | Distributed computing environment                           | Single Apple Silicon computer using Spark local mode            |
-| Evaluation            | Execution time and clustering quality                       | Runtime, speedup, SSE, and convergence                          |
+| Evaluation            | Execution time and clustering quality                       | Runtime, local speedup, SSE, convergence; purity, ARI, and NMI on labeled samples |
 | Traditional baseline  | Traditional K-Means                                         | Custom single-process K-Means with initialization variants      |
 
 ### Implementation Similarities
@@ -683,24 +683,35 @@ samples.
 On the synthetic sample, both algorithms recover the true structure
 exactly, consistent with well-separated synthetic clusters.
 
-On the KDD99 sample, Spark's purity (0.797) appears reasonable in
-isolation, but its ARI is negative and its NMI is near zero —
-indicating essentially no correspondence with the true intrusion-type
-labels beyond chance. The recorded cluster sizes for this run
-(`1; 936; 1; 61; 1`) show why: one cluster absorbed 936 of 1,000
-records, so high purity was achieved by concentration rather than
-genuine class separation. Traditional K-Means on the identical sample
-scored meaningfully higher on both ARI (0.432) and NMI (0.535),
-suggesting its initialization happened to separate the minority
-classes more effectively on this run.
+On the KDD99 sample, Spark Parallel K-Means achieved a purity
+of 0.797, an ARI of approximately -0.005, and an NMI of 0.011.
+The negative ARI and near-zero NMI indicate very weak agreement
+between the predicted clusters and the ground-truth labels.
 
-As with the SSE-based comparisons in Section 6.4 [renumber to 6.5],
+The predicted cluster sizes were highly imbalanced
+(`1; 936; 1; 61; 1`), with 936 of the 1,000 records assigned
+to one cluster. This distribution warrants further investigation,
+but cluster sizes alone cannot establish why the observed purity
+was achieved. A class-by-cluster contingency table would be
+needed to determine how the ground-truth classes were distributed
+across the predicted clusters.
+
+Traditional K-Means achieved higher ARI (0.432) and NMI (0.535)
+on the same sample. However, the implementations used different
+initialization procedures. Initialization may have contributed
+to the observed difference, but this explanation was not
+isolated or confirmed experimentally.
+
+As with the SSE-based comparisons in Section 6.5,
 the traditional and Spark implementations use different
-initialization procedures, so this quality gap should not be read as
-a controlled algorithm-only comparison. It may partly reflect
-initialization sensitivity rather than a general Spark-versus-
-traditional effect; confirming that would require rerunning with
-matched initializations, which is out of scope here.
+initialization procedures and computational structures.
+Consequently, this quality difference is an observed result
+for the evaluated configurations, not a controlled estimate
+of the effect of parallel execution alone.
+
+A more rigorous comparison would require matched initialization
+conditions, repeated random seeds, and additional datasets.
+Those experiments were not performed in this evaluation.
 
 ### 6.5 Traditional K-Means and Parallel K-Means Comparison
 
@@ -793,9 +804,23 @@ Third, the comparison with traditional K-Means demonstrates
 that initialization strategy can substantially influence the
 quality of the resulting clusters.
 
-Together, these findings support the practical value of
-parallel execution and careful initialization when implementing
-K-Means for larger numerical datasets.
+The separate external-quality evaluation provides an additional
+observation. Both algorithms achieved perfect purity, ARI, and NMI
+on the 1,000-record synthetic sample. However, on the 1,000-record
+KDD99 sample, traditional K-Means achieved higher ARI and NMI than
+Spark Parallel K-Means. The Spark result also showed a highly
+imbalanced distribution of records across its predicted clusters.
+
+These findings indicate that similar SSE values or successful
+convergence do not necessarily establish agreement with known
+class labels. Because the implementations use different
+initialization procedures, the KDD99 quality difference cannot
+be attributed solely to parallel execution.
+
+Together, the findings support the potential value of local
+parallel execution and careful initialization while emphasizing
+the importance of evaluating clustering quality using multiple
+metrics and datasets.
 
 ### 6.9 Limitations of the Results
 
@@ -810,9 +835,11 @@ The primary scalability experiments used only three measured
 repetitions per configuration. The traditional-versus-Spark
 comparison used five repetitions per algorithm.
 
-The datasets were synthetically generated and may not capture
-the irregularity, dimensionality, missing values, or imbalance
-found in real-world data.
+The primary scalability experiments used synthetically generated
+datasets, which may not capture the irregularity, dimensionality,
+missing values, or imbalance found in real-world data. A separate
+external-quality evaluation included a small KDD99 sample, but
+that sample does not establish performance on the full dataset.
 
 The traditional and Spark implementations also use different
 initialization procedures and computational structures.
@@ -838,12 +865,13 @@ evaluation uses 10,000 and 50,000 records with 20 numerical features.
 Increasing these values would help determine whether the observed
 runtime improvements continue as computational requirements grow.
 
-Second, the implementation could be evaluated on real-world datasets.
-For example, the KDD Cup 1999 dataset examined in the original research
-would provide an opportunity to investigate clustering behavior on
-network-related data. Such an experiment would require appropriate
-preprocessing and careful consideration of the dataset's characteristics.
-No results from this dataset are claimed in the present study.
+Second, future experiments could extend the preliminary KDD Cup 1999
+evaluation to a larger and more representative sample. The present study
+reports external clustering-quality results for a 1,000-record KDD99
+sample, but it does not establish performance on the complete dataset.
+Further experiments would require appropriate preprocessing, careful
+handling of class imbalance, and evaluation across multiple random
+seeds and initialization configurations.
 
 Third, future work could deploy the implementation across multiple
 physical computing nodes. Our current experiments use Spark local mode
@@ -893,6 +921,17 @@ initialization. In particular, one tested seed produced a substantially
 higher SSE with a single initialization than with multiple
 initializations. This finding demonstrates that convergence alone does
 not guarantee the best clustering solution.
+
+The external-quality evaluation also revealed important differences
+between the algorithms. Both achieved purity, ARI, and NMI values of
+1.0 on the 1,000-record synthetic sample. On the 1,000-record KDD99
+sample, traditional K-Means achieved an ARI of approximately 0.432
+and an NMI of 0.535, compared with approximately -0.005 and 0.011
+for Spark Parallel K-Means. These results highlight the importance
+of evaluating clustering against external labels where available.
+The observed differences may be influenced by initialization and
+should not be interpreted as a controlled comparison of parallel
+and traditional execution.
 
 Overall, the experiments show that increasing local Spark parallelism
 can reduce execution time while maintaining the measured clustering

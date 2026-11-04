@@ -49,13 +49,13 @@ This is a nine-step description of **our implementation**, not a claim that ever
 K-Means minimizes the within-cluster sum of squared Euclidean distances:
 
 \[
-\mathrm{SSE} = \sum*{i=1}^{n} \left\|x_i - \mu*{c(i)}\right\|\_2^2,
+\mathrm{SSE} = \sum_{i=1}^{n} \left\|x_i - \mu_{c(i)}\right\|_2^2,
 \]
 
 where `x_i` is observation `i`, `c(i)` is its assigned cluster, and `μ` denotes a cluster center. For a nonempty cluster `j`, its updated center is the arithmetic mean of assigned observations:
 
 \[
-\mu*j = \frac{1}{|C_j|}\sum*{x_i \in C_j} x_i.
+\mu_j = \frac{1}{|C_j|}\sum_{x_i \in C_j} x_i.
 \]
 
 The distributed implementation calculates these means from aggregated coordinate sums and counts rather than collecting all assigned observations at the driver.
@@ -182,7 +182,7 @@ Because the experiments run on one computer, the observed speedups should not be
 
 The synthetic datasets contain deliberately structured Gaussian clusters. Results on these datasets may differ from results on real-world data containing irregular cluster shapes, noise, missing values, or highly imbalanced cluster populations.
 
-A separate labeled-sample evaluation path, using a 1,000-record KDD Cup 99 sample and a matched 1,000-record synthetic sample, has since been completed and independently verified (Section 5.7 and Section 6.4). This labeled evaluation is distinct from, and smaller in scale than, the principal 10,000/50,000-record scalability study described above; it should not be conflated with those results.
+A separate labeled-sample evaluation path, using a 1,000-record KDD Cup 99 sample and a matched 1,000-record synthetic sample, has since been completed and independently verified (Section 5.7 of this methodology and Section 6.4 of the final report). This labeled evaluation is distinct from, and smaller in scale than, the principal 10,000/50,000-record scalability study described above; it should not be conflated with those results.
 
 Finally, the custom partition-level K-Means implementation materializes each partition within a worker process, which can limit scalability when partitions become too large for the available memory. Candidate-center aggregation also treats candidate centers equally rather than weighting them by their original partition populations.
 
@@ -312,7 +312,7 @@ different algorithms computationally equivalent.
 For each experimental configuration, the arithmetic mean runtime is:
 
 \[
-\bar{t} = \frac{1}{r}\sum\_{i=1}^{r}t_i
+\bar{t} = \frac{1}{r}\sum_{i=1}^{r}t_i
 \]
 
 where \(t_i\) is the measured runtime of repetition \(i\), and
@@ -322,9 +322,9 @@ Runtime variability is summarized using the sample standard
 deviation:
 
 \[
-s*t =
+s_t =
 \sqrt{
-\frac{\sum*{i=1}^{r}(t_i-\bar{t})^2}{r-1}
+\frac{\sum_{i=1}^{r}(t_i-\bar{t})^2}{r-1}
 }
 \]
 
@@ -343,18 +343,18 @@ of Spark `local[1]` by the mean runtime of another Spark configuration
 at the same dataset size:
 
 \[
-S_p = \frac{\bar{t}\_1}{\bar{t}\_p}
+S_p = \frac{\bar{t}_1}{\bar{t}_p}
 \]
 
-where \(\bar{t}\_1\) is the mean runtime using one local worker thread
-and \(\bar{t}\_p\) is the mean runtime using \(p\) local worker threads.
+where \(\bar{t}_1\) is the mean runtime using one local worker thread
+and \(\bar{t}_p\) is the mean runtime using \(p\) local worker threads.
 
 The corresponding runtime reduction percentage is:
 
 \[
 R_p =
 \left(
-1-\frac{\bar{t}\_p}{\bar{t}\_1}
+1-\frac{\bar{t}_p}{\bar{t}_1}
 \right)\times100\%
 \]
 
@@ -399,6 +399,15 @@ C =
 Convergence does not guarantee that the globally optimal K-Means
 solution has been found.
 
+The labeled-quality evaluation is separate from the primary
+scalability benchmarks. The scalability experiments use
+10,000- and 50,000-record synthetic datasets, whereas the
+external-quality evaluation uses two 1,000-record labeled
+samples: one synthetic sample and one KDD Cup 99 sample.
+
+Results from these different experiment groups should not
+be combined into a single runtime or scalability comparison.
+
 ### 5.7 External Cluster-Quality Evaluation (Purity, ARI, NMI)
 
 SSE measures clustering compactness but does not indicate whether
@@ -416,10 +425,17 @@ afterward, using three independent metrics:
 - **Normalized Mutual Information (NMI)** — shared information
   between predicted and true groupings, normalized to [0, 1].
 
-Purity alone can be misleading on imbalanced data, since a
-clustering can score high purity by assigning most records to one
-dominant cluster without separating minority classes. ARI and NMI
-are reported alongside it for this reason.
+Purity can be misleading when the ground-truth classes are
+imbalanced because it does not adjust for chance agreement or
+class prevalence. For example, assigning all observations to
+one cluster can produce a high purity score when one true
+class dominates the dataset, even though the clustering does
+not distinguish the remaining classes.
+
+Purity also tends to increase as the number of predicted
+clusters increases. Therefore, purity should be interpreted
+alongside ARI, NMI, the number of clusters, and the
+distribution of ground-truth classes.
 
 This evaluation was run on two 1,000-record labeled samples: a
 synthetic sample and a sample drawn from KDD Cup 99. Ground-truth
